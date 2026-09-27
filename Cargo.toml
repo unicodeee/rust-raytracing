@@ -1,0 +1,15 @@
+[package]
+name = "rust-learn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+glam = "0.29"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+
+
+
+# [[bin]]
+# name = "variables1"
+# path = "src/bin/exercises/01_variables/variables1.rs"
