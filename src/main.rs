@@ -1,78 +1,42 @@
-use glam::{Mat4, Vec3, Vec4};
+use glam::Vec3;
+use rust_learn::camera::Camera;
+use rust_learn::film::Film;
+use rust_learn::sphere::{Shape, Sphere};
 
-use std::fmt;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const WIDTH: u32 = 1024;
+    const HEIGHT: u32 = 768;
 
-use rust_learn::ray::Ray;
+    let mut film = Film::new(WIDTH, HEIGHT);
+    let sphere_center = Vec3::new(0.0, 0.0, -1.0);
+    let sphere = Sphere::new(sphere_center, 0.1, [255, 0, 0, 255]);
 
-// position: ray  = origin + scale * direction
-// p(t) = o + t*d
+    let camera = Camera::new(
+        Vec3::ZERO,
+        sphere_center,
+        Vec3::Y,
+        WIDTH as f32 / HEIGHT as f32,
+        45.0,
+    );
 
+    for y in 0..HEIGHT {
+        for x in 0..WIDTH {
+            let s = (x as f32 + 0.5) / WIDTH as f32;
+            let t = 1.0 - (y as f32 + 0.5) / HEIGHT as f32;
+            let ray = camera.ray(s, t);
 
-fn main() {
-    // let m = Mat4::from_cols(
-    //     Vec4::new(1.0, 0.0, 0.0, 0.0), // Column 0 (X axis)
-    //     Vec4::new(0.0, 1.0, 0.0, 0.0), // Column 1 (Y axis)
-    //     Vec4::new(0.0, 0.0, 1.0, 0.0), // Column 2 (Z axis)
-    //     Vec4::new(5.0, 10.0, 15.0, 1.0), // Column 3 (Translation / W axis)
-    // );
+            let color = sphere
+                .hit_with_ray(&ray, 0.001, f32::INFINITY)
+                .map(|_| sphere.color)
+                .unwrap_or([0, 0, 0, 255]);
 
-    let o = Vec3::new(1.0, 1.0, 1.0);
-    let d = Vec3::new(1.0, 2.0, 4.0);
-
-    let ray = Ray::new(o, d);
-
-    print!("\n{}", ray);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn creates_ray() {
-        let origin = Vec3::new(1.0, 2.0, 3.0);
-        let direction = Vec3::new(0.0, 0.0, 2.0);
-
-        let ray = Ray::new(origin, direction);
-
-        assert_eq!(ray.origin(), origin);
-        assert_eq!(ray.direction(), Vec3::new(0.0, 0.0, 1.0));
+            film.set_pixel(x, y, color);
+        }
     }
 
-    #[test]
-    fn evaluates_point_on_ray() {
-        let ray = Ray::new(Vec3::ZERO, Vec3::new(0.0, 0.0, 1.0));
+    let path = std::env::current_dir()?.join("output.png");
+    film.save_png(&path)?;
+    println!("Image created at: {}", path.display());
 
-        assert_eq!(ray.scale(5.0), Vec3::new(0.0, 0.0, 5.0));
-    }
-
-    #[test]
-    fn transforms_ray() {
-        let ray = Ray::new(Vec3::new(1.0, 2.0, 3.0), Vec3::new(0.0, 0.0, 1.0));
-
-        let transform = Mat4::from_translation(Vec3::new(10.0, 0.0, 0.0));
-        let transformed_ray = ray.transform(transform);
-
-        assert_eq!(transformed_ray.origin(), Vec3::new(11.0, 2.0, 3.0));
-
-        assert_eq!(transformed_ray.direction(), Vec3::new(0.0, 0.0, 1.0));
-    }
-
-    #[test]
-    fn test_ray_direction_is_normalized() {
-        let ray = Ray::new(Vec3::ZERO, Vec3::new(0.0, 0.0, 5.0));
-
-        assert_eq!(ray.direction(), Vec3::new(0.0, 0.0, 1.0));
-    }
-
-    #[test]
-    fn displays_ray() {
-        let ray = Ray::new(Vec3::new(1.0, 2.0, 3.0), Vec3::new(0.0, 0.0, 1.0));
-
-        let output = format!("{}", ray);
-
-        assert!(output.contains("Ray"));
-        assert!(output.contains("origin"));
-        assert!(output.contains("direction"));
-    }
+    Ok(())
 }

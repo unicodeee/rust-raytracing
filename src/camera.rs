@@ -8,7 +8,7 @@ pub struct Camera {
     up: Vec3,
     back: Vec3,
     aspect: f32,
-    half_height: f32,
+    field_of_view_degrees: f32,
 }
 
 impl Camera {
@@ -21,17 +21,18 @@ impl Camera {
     ) -> Self {
         assert!(aspect > 0.0, "aspect ratio must be positive");
         assert!(field_of_view_degrees > 0.0 && field_of_view_degrees < 180.0);
-        let back = (eye - target).normalize();
-        let right = world_up.cross(back).normalize();
-        let up = back.cross(right).normalize();
-        let half_height = (field_of_view_degrees.to_radians() * 0.5).tan();
+        // w points backward, from the target toward the eye. -w
+        // points from the eye toward the target.
+        let w = (eye - target).normalize();
+        let right = world_up.cross(w).normalize(); // u
+        let up = w.cross(right).normalize();
         Self {
             eye,
             right,
             up,
-            back,
+            back: w,
             aspect,
-            half_height,
+            field_of_view_degrees,
         }
     }
 
@@ -49,8 +50,9 @@ impl Camera {
     }
 
     pub fn ray(&self, s: f32, t: f32) -> Ray {
-        let x = (2.0 * s - 1.0) * self.aspect * self.half_height;
-        let y = (2.0 * t - 1.0) * self.half_height;
+        let view_scale = (self.field_of_view_degrees.to_radians() * 0.5).tan();
+        let x = (2.0 * s - 1.0) * self.aspect * view_scale;
+        let y = (2.0 * t - 1.0) * view_scale;
         Ray::new(self.eye, -self.back + x * self.right + y * self.up)
     }
 }
@@ -65,6 +67,9 @@ mod tests {
     #[test]
     fn center_ray_points_at_target() {
         let camera = Camera::new(Vec3::ZERO, -Vec3::Z, Vec3::Y, 1.0, 90.0);
+        close(camera.back(), Vec3::Z);
+        close(camera.right(), Vec3::X);
+        close(camera.up(), Vec3::Y);
         close(camera.ray(0.5, 0.5).direction(), -Vec3::Z);
     }
 

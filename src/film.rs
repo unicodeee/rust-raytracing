@@ -29,6 +29,7 @@ impl Film {
         self.pixels[self.index(x, y)]
     }
     pub fn save_png(&self, path: impl AsRef<Path>) -> image::ImageResult<()> {
+        let path = path.as_ref();
         let mut image: RgbaImage = ImageBuffer::new(self.width, self.height);
         for y in 0..self.height {
             for x in 0..self.width {
