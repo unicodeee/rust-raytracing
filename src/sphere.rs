@@ -19,6 +19,7 @@ pub struct Hit {
     pub t: f32,
     pub p: Vec3,
     pub n: Vec3,
+    pub color: [u8; 4],
 }
 
 impl Sphere {
@@ -57,6 +58,7 @@ impl Shape for Sphere {
             t,
             p,
             n: (p - self.origin) / self.radius,
+            color: self.color,
         })
     }
 }

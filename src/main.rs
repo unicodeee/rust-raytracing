@@ -1,42 +1,65 @@
 use glam::Vec3;
 use rust_learn::camera::Camera;
 use rust_learn::film::Film;
+use rust_learn::render::render;
 use rust_learn::sphere::{Shape, Sphere};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const WIDTH: u32 = 1024;
-    const HEIGHT: u32 = 768;
+const WIDTH: u32 = 1024;
+const HEIGHT: u32 = 768;
+const BACKGROUND: [u8; 4] = [20, 20, 30, 255];
 
-    let mut film = Film::new(WIDTH, HEIGHT);
-    let sphere_center = Vec3::new(0.0, 0.0, -1.0);
-    let sphere = Sphere::new(sphere_center, 0.1, [255, 0, 0, 255]);
+fn make_spheres() -> Vec<Box<dyn Shape>> {
+    vec![
+        Box::new(Sphere::new(
+            Vec3::new(0.0, 0.0, 0.0),
+            0.55,
+            [220, 30, 30, 255],
+        )),
+        Box::new(Sphere::new(
+            Vec3::new(0.55, 0.05, 0.45),
+            0.55,
+            [30, 200, 60, 255],
+        )),
+        Box::new(Sphere::new(
+            Vec3::new(-0.45, 0.15, 0.75),
+            0.55,
+            [40, 80, 220, 255],
+        )),
+    ]
+}
 
-    let camera = Camera::new(
-        Vec3::ZERO,
-        sphere_center,
-        Vec3::Y,
-        WIDTH as f32 / HEIGHT as f32,
-        45.0,
-    );
+fn render_view(filename: &str, eye: Vec3, target: Vec3) -> Result<(), Box<dyn std::error::Error>> {
+    let spheres = make_spheres();
 
-    for y in 0..HEIGHT {
-        for x in 0..WIDTH {
-            let s = (x as f32 + 0.5) / WIDTH as f32;
-            let t = 1.0 - (y as f32 + 0.5) / HEIGHT as f32;
-            let ray = camera.ray(s, t);
+    let camera = Camera::new(eye, target, Vec3::Y, WIDTH as f32 / HEIGHT as f32, 45.0);
 
-            let color = sphere
-                .hit_with_ray(&ray, 0.001, f32::INFINITY)
-                .map(|_| sphere.color)
-                .unwrap_or([0, 0, 0, 255]);
+    let film: Film = render(&spheres, &camera, WIDTH, HEIGHT, BACKGROUND);
 
-            film.set_pixel(x, y, color);
-        }
-    }
-
-    let path = std::env::current_dir()?.join("output.png");
+    let path = std::env::current_dir()?.join(filename);
     film.save_png(&path)?;
     println!("Image created at: {}", path.display());
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    render_view(
+        "output_front.png",
+        Vec3::new(0.0, 0.0, -4.0),
+        Vec3::new(0.0, 0.0, 0.35),
+    )?;
+
+    render_view(
+        "output_left.png",
+        Vec3::new(-3.5, 1.0, -3.0),
+        Vec3::new(0.0, 0.0, 0.35),
+    )?;
+
+    render_view(
+        "output_right.png",
+        Vec3::new(3.5, 1.2, -3.0),
+        Vec3::new(0.0, 0.0, 0.35),
+    )?;
 
     Ok(())
 }
