@@ -2,7 +2,7 @@ use glam::Vec3;
 use rust_learn::camera::Camera;
 use rust_learn::film::Film;
 use rust_learn::render::render;
-use rust_learn::sphere::{Shape, Sphere};
+use rust_learn::sphere::{Shape, Sphere, Plane};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 768;
@@ -24,6 +24,10 @@ fn make_spheres() -> Vec<Box<dyn Shape>> {
             Vec3::new(-0.45, 0.15, 0.75),
             0.55,
             [40, 80, 220, 255],
+        )),
+        Box::new(Plane::new(
+            Vec3::new(0.0, -0.6, 0.0),
+            Vec3::Y,
         )),
     ]
 }

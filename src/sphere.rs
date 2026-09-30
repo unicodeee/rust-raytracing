@@ -9,6 +9,56 @@ pub trait Shape {
     }
 }
 
+pub struct Plane {
+    origin: Vec3,
+    up: Vec3, // up vector
+    color: [u8;4],
+}
+
+impl Plane {
+
+    pub fn new(origin: Vec3, up: Vec3) -> Self {
+        let DEFAULT_COLOR: [u8;4] = [100, 0, 0, 255];
+        Self {
+            origin,
+            up: up
+                .try_normalize()
+                .expect("plane normal must not be zero"),
+            color: DEFAULT_COLOR,
+        }
+    }
+}
+
+impl Shape for Plane {
+    fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
+
+        let denominator = d.dot(self.up);
+
+        // The ray is parallel, or nearly parallel, to the plane.
+        if denominator.abs() < 1e-6 {
+            return None;
+        }
+
+        let t: f32 = (self.origin - e).dot(self.up) / (d.dot(self.up));
+
+
+        if t < t_min || t > t_max {
+            return None
+        };
+        let p = e + t * d;
+        Some(Hit {
+            t,
+            p,
+            n: self.up,
+            color: self.color,
+        })
+    }
+
+}
+
+
+
+
 pub struct Sphere {
     pub origin: Vec3,
     pub radius: f32,
@@ -16,9 +66,9 @@ pub struct Sphere {
 }
 
 pub struct Hit {
-    pub t: f32,
-    pub p: Vec3,
-    pub n: Vec3,
+    pub t: f32,     // distance
+    pub p: Vec3,    // hit at this point
+    pub n: Vec3,    //
     pub color: [u8; 4],
 }
 
