@@ -1,11 +1,13 @@
 use glam::Vec3;
 use crate::ray::Ray;
 use crate::sphere::{Hit, Shape};
+use crate::light::Light;
 
 pub fn closest_hit(
     // render order: loop through each ray, then each object
     objects: &[Box<dyn Shape>],
     ray: &Ray,
+    lights: &Vec<Light>,
 ) -> Option<Hit> {
     let mut closest_t = f32::INFINITY;
     let mut closest_hit = None;
@@ -16,21 +18,32 @@ pub fn closest_hit(
 
             // light:
             // TODO: move this light set up to light.rs
-            let light_intensity = Vec3::new(1.0, 1.0, 1.0);
-            let light_origin = Vec3::new(1.0, 2.0, 0.0);
+
+
+
+            let mut L = Vec3::ZERO;
+
+            for light in lights {
+                let light_intensity = light.color_intensity;
+                let light_origin = light.origin;
+
+
+                let light_power = hit.n.dot(light_origin - hit.p).max(0.0).min(1.0);
+
+
+                let k = Vec3::new(
+                    hit.color[0] as f32,
+                    hit.color[1] as f32,
+                    hit.color[2] as f32,
+                ) / 255.0; // clamp to [0, 1]
+
+                L += light_power * k * light_intensity
+
+            }
+
+
             
-            
-            let light_power = hit.n.dot(light_origin - hit.p).max(0.0).min(1.0);
-            
-            
-            let k = Vec3::new(
-                hit.color[0] as f32,
-                hit.color[1] as f32,
-                hit.color[2] as f32, 
-            ) / 255.0; // clamp to [0, 1]
-            
-            
-            let L = light_power * k * light_intensity.clamp(Vec3::ZERO, Vec3::ONE);
+            // L = L.clamp(Vec3::ZERO, Vec3::ONE);
             hit.color = to_rgba8(L);
 
 

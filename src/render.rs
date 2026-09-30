@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::camera::Camera;
 use crate::film::Film;
+use crate::light::Light;
 use crate::scene::closest_hit;
 use crate::sphere::Shape;
 
@@ -13,13 +14,30 @@ pub fn render(
 ) -> Film {
     let mut film = Film::new(width, height);
 
+    
+    
+    let light1 = Light::new(
+        Vec3::new(-2.0, 1.0, 0.0),
+        Vec3::new(5.0, 0.0, 0.0),
+        // Vec3::new(1.0, 1.0, 1.0),
+    );
+
+    let light2 = Light::new(
+        Vec3::new(0.5, 5.0, 0.0),
+        // Vec3::new(2.0, 5.0, 5.0),
+        Vec3::new(25551.0, 25551.0, 25551.0),
+
+    );
+
+    let lights = vec![light1, light2];
+
     for y in 0..height {
         for x in 0..width {
             let s = (x as f32 + 0.5) / width as f32;
             let t = 1.0 - (y as f32 + 0.5) / height as f32;
             let ray = camera.ray(s, t);
 
-            let color = closest_hit(objects, &ray)
+            let color = closest_hit(objects, &ray, &lights)
                 .map(|hit| hit.color)
                 .unwrap_or(background);
 
