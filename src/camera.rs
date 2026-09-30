@@ -25,6 +25,11 @@ impl Camera {
         // points from the eye toward the target.
         let w = (eye - target).normalize();
         let right = world_up.cross(w).normalize(); // u
+        assert!(
+            right.length_squared() > 1e-12,
+            "world_up must not be parallel to the camera direction"
+        );
+
         let up = w.cross(right).normalize();
         Self {
             eye,
@@ -84,5 +89,14 @@ mod tests {
             camera.ray(1.0, 1.0).direction(),
             Vec3::new(1.0, 1.0, -1.0).normalize(),
         );
+    }
+    #[test]
+    #[should_panic(expected = "world_up must not be parallel to the camera direction")]
+    fn world_up_must_not_be_parallel_to_direction() {
+        let eye = Vec3::ZERO;
+        let target = -Vec3::Z;
+        let world_up = Vec3::Z;
+
+        Camera::new(eye, target, world_up, 1.0, 10.0);
     }
 }
