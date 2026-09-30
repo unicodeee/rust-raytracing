@@ -1,3 +1,4 @@
+use glam::Vec3;
 use crate::camera::Camera;
 use crate::film::Film;
 use crate::scene::closest_hit;
@@ -21,6 +22,16 @@ pub fn render(
             let color = closest_hit(objects, &ray)
                 .map(|hit| hit.color)
                 .unwrap_or(background);
+
+
+            //
+
+
+
+
+
+
+
 
             film.set_pixel(x, y, color);
         }
