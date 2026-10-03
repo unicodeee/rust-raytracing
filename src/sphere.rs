@@ -18,7 +18,7 @@ pub struct Plane {
 impl Plane {
 
     pub fn new(origin: Vec3, up: Vec3) -> Self {
-        let DEFAULT_COLOR: [u8;4] = [100, 0, 0, 255];
+        let DEFAULT_COLOR: [u8;4] = [135, 206, 250, 100];
         Self {
             origin,
             up: up
@@ -46,12 +46,8 @@ impl Shape for Plane {
             return None
         };
         let p = e + t * d;
-        Some(Hit {
-            t,
-            p,
-            n: self.up,
-            color: self.color,
-        })
+
+        Some(Hit::new(t, p, self.up, self.color))
     }
 
 }
@@ -70,6 +66,17 @@ pub struct Hit {
     pub p: Vec3,    // hit at this point
     pub n: Vec3,    //
     pub color: [u8; 4],
+}
+
+impl Hit {
+    fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4]) -> Self {
+        Self {
+            t,
+            p,
+            n: n.normalize(),
+            color,
+        }
+    }
 }
 
 impl Sphere {
@@ -104,11 +111,6 @@ impl Shape for Sphere {
         }
 
         let p = e + t * d;
-        Some(Hit {
-            t,
-            p,
-            n: (p - self.origin) / self.radius,
-            color: self.color,
-        })
+        Some(Hit::new(t, p, (p - self.origin) / self.radius, self.color))
     }
 }
