@@ -1,9 +1,9 @@
-use glam::Vec3;
 use crate::camera::Camera;
 use crate::film::Film;
 use crate::light::Light;
 use crate::scene::closest_hit;
 use crate::sphere::Shape;
+use glam::Vec3;
 
 pub fn render(
     objects: &[Box<dyn Shape>],
@@ -14,20 +14,9 @@ pub fn render(
 ) -> Film {
     let mut film = Film::new(width, height);
 
-    
-    
-    let light1 = Light::new(
-        Vec3::new(-2.0, 1.0, 0.0),
-        Vec3::new(5.0, 0.0, 0.0),
-        // Vec3::new(1.0, 1.0, 1.0),
-    );
+    let light1 = Light::new(Vec3::new(-4.0, 4.0, -4.0), Vec3::splat(1.0));
 
-    let light2 = Light::new(
-        Vec3::new(0.5, 5.0, 0.0),
-        // Vec3::new(2.0, 5.0, 5.0),
-        Vec3::new(25551.0, 25551.0, 25551.0),
-
-    );
+    let light2 = Light::new(Vec3::new(4.0, 4.0, -4.0), Vec3::splat(1.0));
 
     let lights = vec![light1, light2];
 
@@ -41,15 +30,7 @@ pub fn render(
                 .map(|hit| hit.color)
                 .unwrap_or(background);
 
-
             //
-
-
-
-
-
-
-
 
             film.set_pixel(x, y, color);
         }

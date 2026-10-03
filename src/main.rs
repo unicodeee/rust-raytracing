@@ -2,7 +2,7 @@ use glam::Vec3;
 use rust_learn::camera::Camera;
 use rust_learn::film::Film;
 use rust_learn::render::render;
-use rust_learn::sphere::{Shape, Sphere, Plane};
+use rust_learn::sphere::{Plane, Shape, Sphere};
 
 const WIDTH: u32 = 1024;
 const HEIGHT: u32 = 768;
@@ -11,33 +11,35 @@ const BACKGROUND: [u8; 4] = [20, 20, 30, 255];
 fn make_spheres() -> Vec<Box<dyn Shape>> {
     vec![
         Box::new(Sphere::new(
-            Vec3::new(0.0, 0.0, 0.0),
-            0.55,
+            Vec3::new(-0.9, 0.0, 0.6),
+            0.9,
             [220, 30, 30, 255],
         )),
         Box::new(Sphere::new(
-            Vec3::new(0.55, 0.05, 0.45),
-            0.55,
+            Vec3::new(1.0, -0.3, 0.7),
+            0.6,
             [30, 200, 60, 255],
         )),
         Box::new(Sphere::new(
-            Vec3::new(-0.45, 0.15, 0.75),
-            0.55,
+            Vec3::new(-0.1, -0.55, -0.9),
+            0.35,
             [40, 80, 220, 255],
         )),
-        Box::new(Plane::new(
-            Vec3::new(0.0, -0.6, 0.0),
-            Vec3::Y,
+        Box::new(Sphere::new(
+            Vec3::new(0.95, -0.65, -0.9),
+            0.25,
+            [230, 190, 30, 255],
         )),
+        Box::new(Plane::new(Vec3::new(0.0, -0.9, 0.0), Vec3::Y)),
     ]
 }
 
 fn render_view(filename: &str, eye: Vec3, target: Vec3) -> Result<(), Box<dyn std::error::Error>> {
-    let spheres = make_spheres();
+    let objects = make_spheres();
 
     let camera = Camera::new(eye, target, Vec3::Y, WIDTH as f32 / HEIGHT as f32, 45.0);
 
-    let film: Film = render(&spheres, &camera, WIDTH, HEIGHT, BACKGROUND);
+    let film: Film = render(&objects, &camera, WIDTH, HEIGHT, BACKGROUND);
 
     let path = std::env::current_dir()?.join(filename);
     film.save_png(&path)?;
@@ -47,22 +49,31 @@ fn render_view(filename: &str, eye: Vec3, target: Vec3) -> Result<(), Box<dyn st
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    render_view(
-        "output_front.png",
-        Vec3::new(0.0, 0.0, -4.0),
-        Vec3::new(0.0, 0.0, 0.35),
-    )?;
+    const CAMERA_HEIGHT: f32 = 1.6;
+    let target = Vec3::new(0.0, -0.2, 0.0);
 
     render_view(
-        "output_left.png",
-        Vec3::new(-3.5, 1.0, -3.0),
-        Vec3::new(0.0, 0.0, 0.35),
+        "output_front.png",
+        Vec3::new(0.0, CAMERA_HEIGHT, -5.0),
+        target,
     )?;
 
     render_view(
         "output_right.png",
-        Vec3::new(3.5, 1.2, -3.0),
-        Vec3::new(0.0, 0.0, 0.35),
+        Vec3::new(5.0, CAMERA_HEIGHT, 0.0),
+        target,
+    )?;
+
+    render_view(
+        "output_back.png",
+        Vec3::new(0.0, CAMERA_HEIGHT, 5.0),
+        target,
+    )?;
+
+    render_view(
+        "output_left.png",
+        Vec3::new(-5.0, CAMERA_HEIGHT, 0.0),
+        target,
     )?;
 
     Ok(())
