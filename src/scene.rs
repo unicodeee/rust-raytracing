@@ -28,15 +28,16 @@ pub fn closest_hit(
                 let light_intensity = light.color_intensity;
                 let light_origin = light.origin;
 
+                let I = (light_origin - hit.p).normalize();
 
-                let light_power = hit.n.dot(light_origin - hit.p).max(0.0).min(1.0);
-
+                let light_power = hit.n.dot(I).max(0.0).min(1.0);
 
                 let k = Vec3::new(
                     hit.color[0] as f32,
                     hit.color[1] as f32,
                     hit.color[2] as f32,
                 ) / 255.0; // clamp to [0, 1]
+                let lambert = light_power * k * light_intensity;
 
 
                 let ka = Vec3::new(
@@ -44,15 +45,21 @@ pub fn closest_hit(
                     hit.color[1] as f32,
                     hit.color[2] as f32,
                 ) / 255.0;
-
                 let ia = 0.4; // constant
+                let ambient = ka*ia;
 
-                L += ka*ia +  light_power * k * light_intensity
+                // add ks * I * max()
+                let h = (hit.p.normalize() + I).normalize();
+                let ks = 0.4;
+                let p = 10.0; // Phong exponent
+                let max_component = (hit.n.dot(h).max(0.0)).powf(p);
+                let blinn_phong = ks * light_intensity * max_component;
 
+
+                L += ambient + lambert + blinn_phong;
             }
             // L = L.clamp(Vec3::ZERO, Vec3::ONE);
             hit.color = to_rgba8(L);
-
 
 
             closest_hit = Some(hit);
