@@ -20,6 +20,7 @@ pub fn closest_hit(
             // TODO: move this light set up to light.rs
 
 
+            // ambient
 
             let mut L = Vec3::ZERO;
 
@@ -37,12 +38,18 @@ pub fn closest_hit(
                     hit.color[2] as f32,
                 ) / 255.0; // clamp to [0, 1]
 
-                L += light_power * k * light_intensity
+
+                let ka = Vec3::new(
+                    hit.color[0] as f32,
+                    hit.color[1] as f32,
+                    hit.color[2] as f32,
+                ) / 255.0;
+
+                let ia = 0.4; // constant
+
+                L += ka*ia +  light_power * k * light_intensity
 
             }
-
-
-            
             // L = L.clamp(Vec3::ZERO, Vec3::ONE);
             hit.color = to_rgba8(L);
 
@@ -51,10 +58,6 @@ pub fn closest_hit(
             closest_hit = Some(hit);
         }
     }
-    
-    
-    
-
         closest_hit
 }
 
