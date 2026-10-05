@@ -9,7 +9,8 @@ const HEIGHT: u32 = 768;
 const BACKGROUND: [u8; 4] = [20, 20, 30, 255];
 
 fn make_spheres() -> Vec<Box<dyn Shape>> {
-    vec![ // RED
+    vec![
+        // RED
         Box::new(Sphere::new(
             Vec3::new(-0.9, 0.0, 0.6),
             0.9,
@@ -37,7 +38,8 @@ fn make_spheres() -> Vec<Box<dyn Shape>> {
         Box::new(Plane::new(
             Vec3::new(0.0, -0.9, 0.0),
             Vec3::Y,
-            Material::new(Vec3::new(0.5, 0.5, 0.5), 0.4, 1000.0),)),
+            Material::new(Vec3::new(0.5, 0.5, 0.5), 0.4, 1000.0),
+        )),
     ]
 }
 

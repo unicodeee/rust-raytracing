@@ -12,14 +12,12 @@ pub trait Shape {
 
 pub struct Material {
     pub diffuse_coefficient: Vec3,
-    pub specularity: f32, // ks
+    pub specularity: f32,    // ks
     pub phong_constant: f32, // shininess
 }
 
 impl Material {
-    pub fn new(diffuse_coefficient: Vec3, 
-               specularity: f32, 
-               phong_constant: f32) -> Self {
+    pub fn new(diffuse_coefficient: Vec3, specularity: f32, phong_constant: f32) -> Self {
         Self {
             diffuse_coefficient,
             specularity,
@@ -37,7 +35,7 @@ pub struct Plane {
 
 impl Plane {
     pub fn new(origin: Vec3, up: Vec3, material: Material) -> Self {
-        let default_color: [u8; 4] = [135, 206, 250, 100];
+        let default_color: [u8; 4] = [135, 206, 250, 255];
         Self {
             origin,
             up: up.try_normalize().expect("plane normal must not be zero"),
@@ -63,7 +61,13 @@ impl Shape for Plane {
         };
         let p = e + t * d;
 
-        Some(Hit::new(t, p, self.up, self.color, Rc::clone(&self.material)))
+        Some(Hit::new(
+            t,
+            p,
+            self.up,
+            self.color,
+            Rc::clone(&self.material),
+        ))
     }
 }
 
@@ -128,6 +132,12 @@ impl Shape for Sphere {
         }
 
         let p = e + t * d;
-        Some(Hit::new(t, p, (p - self.origin) / self.radius, self.color, Rc::clone(&self.material)))
+        Some(Hit::new(
+            t,
+            p,
+            (p - self.origin) / self.radius,
+            self.color,
+            Rc::clone(&self.material),
+        ))
     }
 }
