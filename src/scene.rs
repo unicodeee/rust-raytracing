@@ -1,6 +1,6 @@
 use crate::light::Light;
 use crate::ray::Ray;
-use crate::sphere::{Hit, Shape};
+use crate::shapes::{Hit, Shape};
 use glam::Vec3;
 
 pub fn closest_hit(
@@ -16,36 +16,26 @@ pub fn closest_hit(
         if let Some(mut hit) = object.hit_with_ray(ray, 0.001, closest_t) {
             closest_t = hit.t;
 
-            // light:
-            // TODO: move this light set up to light.rs
-
-            // ambient
 
             let mut lighting = Vec3::ZERO;
 
             for light in lights {
                 let light_intensity = light.color_intensity;
                 let light_origin = light.origin;
-
                 let light_direction = (light_origin - hit.p).normalize();
 
                 let light_power = hit.n.dot(light_direction).max(0.0).min(1.0);
-
-                let k = Vec3::new(
-                    hit.color[0] as f32,
-                    hit.color[1] as f32,
-                    hit.color[2] as f32,
-                ) / 255.0; // clamp to [0, 1]
-                let lambert = light_power * k * light_intensity;
+                let kd = hit.material.diffuse_coefficient;
+                let lambert_diffuse = light_power * kd * light_intensity;
 
                 // add ks * I * max()
                 let h = (hit.p.normalize() + light_direction).normalize();
-                let ks = 0.4;
-                let p = 10.0; // Phong exponent
+                let ks = hit.material.specularity;
+                let p = hit.material.phong_constant; // Phong exponent
                 let max_component = (hit.n.dot(h).max(0.0)).powf(p);
                 let blinn_phong = ks * light_intensity * max_component;
 
-                lighting += lambert + blinn_phong;
+                lighting += lambert_diffuse + blinn_phong;
             }
             // L = L.clamp(Vec3::ZERO, Vec3::ONE);
 

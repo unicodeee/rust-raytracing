@@ -1,5 +1,6 @@
 use crate::ray::Ray;
 use glam::Vec3;
+use std::rc::Rc;
 
 pub trait Shape {
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit>;
@@ -9,19 +10,39 @@ pub trait Shape {
     }
 }
 
+pub struct Material {
+    pub diffuse_coefficient: Vec3,
+    pub specularity: f32, // ks
+    pub phong_constant: f32, // shininess
+}
+
+impl Material {
+    pub fn new(diffuse_coefficient: Vec3, 
+               specularity: f32, 
+               phong_constant: f32) -> Self {
+        Self {
+            diffuse_coefficient,
+            specularity,
+            phong_constant,
+        }
+    }
+}
+
 pub struct Plane {
     origin: Vec3,
     up: Vec3, // up vector
     color: [u8; 4],
+    material: Rc<Material>,
 }
 
 impl Plane {
-    pub fn new(origin: Vec3, up: Vec3) -> Self {
+    pub fn new(origin: Vec3, up: Vec3, material: Material) -> Self {
         let default_color: [u8; 4] = [135, 206, 250, 100];
         Self {
             origin,
             up: up.try_normalize().expect("plane normal must not be zero"),
             color: default_color,
+            material: Rc::new(material),
         }
     }
 }
@@ -42,7 +63,7 @@ impl Shape for Plane {
         };
         let p = e + t * d;
 
-        Some(Hit::new(t, p, self.up, self.color))
+        Some(Hit::new(t, p, self.up, self.color, Rc::clone(&self.material)))
     }
 }
 
@@ -50,6 +71,7 @@ pub struct Sphere {
     pub origin: Vec3,
     pub radius: f32,
     pub color: [u8; 4],
+    pub material: Rc<Material>,
 }
 
 pub struct Hit {
@@ -57,25 +79,29 @@ pub struct Hit {
     pub p: Vec3, // hit at this point
     pub n: Vec3, //
     pub color: [u8; 4],
+    pub material: Rc<Material>,
 }
 
 impl Hit {
-    fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4]) -> Self {
+    fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4], material: Rc<Material>) -> Self {
         Self {
             t,
             p,
             n: n.normalize(),
             color,
+            // to do: impl for each shape
+            material,
         }
     }
 }
 
 impl Sphere {
-    pub fn new(origin: Vec3, radius: f32, color: [u8; 4]) -> Self {
+    pub fn new(origin: Vec3, radius: f32, color: [u8; 4], material: Material) -> Self {
         Self {
             origin,
             radius,
             color,
+            material: Rc::new(material),
         }
     }
 }
@@ -102,6 +128,6 @@ impl Shape for Sphere {
         }
 
         let p = e + t * d;
-        Some(Hit::new(t, p, (p - self.origin) / self.radius, self.color))
+        Some(Hit::new(t, p, (p - self.origin) / self.radius, self.color, Rc::clone(&self.material)))
     }
 }
