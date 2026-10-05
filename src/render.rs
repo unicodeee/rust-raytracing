@@ -2,7 +2,7 @@ use crate::camera::Camera;
 use crate::film::Film;
 use crate::light::Light;
 use crate::scene::closest_hit;
-use crate::sphere::Shape;
+use crate::shapes::Shape;
 use glam::Vec3;
 
 pub fn render(

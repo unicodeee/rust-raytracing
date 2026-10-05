@@ -6,4 +6,4 @@ pub mod film;
 pub mod light;
 pub mod render;
 pub mod scene;
-pub mod sphere;
+pub mod shapes;
