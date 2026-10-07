@@ -1,8 +1,8 @@
 # Rust Ray Tracer
 
-Me learn Rust. Me shoot rays. Balls appear.
+Me Learn Rust. Shoot rays. Balls appear.
 
-Old commits. Real renders. [Rebuild pictures](docs/render-progression.py).
+[Rebuild pictures](docs/render-progression.py).
 
 ## 1. One ball.
 
@@ -42,6 +42,4 @@ cargo run --release
 
 Four views. Four PNGs: `output_front.png`, `output_right.png`, `output_back.png`, `output_left.png`.
 
-## To be continued...
-
-More Rust. More rays. More things.
+## To be continued... 😆
