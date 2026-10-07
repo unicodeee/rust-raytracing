@@ -1,6 +1,6 @@
 # Rust Ray Tracer
 
-Me Learn Rust. Shoot rays. Balls appear.
+Ray tracing 3D renderer built from scratch with Rust lang. (in progress)
 
 [Rebuild pictures](docs/render-progression.py).
 
