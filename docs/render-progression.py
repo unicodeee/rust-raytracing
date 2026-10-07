@@ -17,6 +17,7 @@ STAGES = (
     ("327dfe3", "output_front.png", "05-ambient.png"),
     ("83037a0", "output_front.png", "06-shading.png"),
     ("55a7b8e", "output_front.png", "07-shadows.png"),
+    ("43908ae", "output_front.png", "08-colored-lights.png"),
 )
 
 
@@ -45,6 +46,17 @@ def main():
                         ["git", "show", f"2818ddf:{filename}"], cwd=root,
                     )
                     (scene / filename).write_bytes(data)
+
+            # Use the existing yellow and purple lights for the final picture.
+            # Keep the historical geometry, camera, and shading unchanged.
+            if saved == "08-colored-lights.png":
+                renderer = scene / "src" / "render.rs"
+                code = renderer.read_text()
+                before = "    let lights = vec![light1, light2];\n    // let lights = vec![yellow_light, purple_light];"
+                after = "    // let lights = vec![light1, light2];\n    let lights = vec![yellow_light, purple_light];"
+                if code.count(before) != 1:
+                    raise RuntimeError("Expected historical light selection was not found")
+                renderer.write_text(code.replace(before, after))
 
             print(f"Rendering {saved} from {commit}", flush=True)
             # Archived files have old timestamps. Clear this package's build

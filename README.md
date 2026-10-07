@@ -32,6 +32,10 @@ Ray tracing 3D renderer built from scratch with Rust lang. (in progress)
 
 ![Four shaded balls cast shadows onto the floor, rendered from commit 55a7b8e](docs/renders/07-shadows.png)
 
+## 8. Yellow light. Purple light.
+
+![Four balls under yellow and purple lights, rendered from commit 43908ae with the existing colored lights enabled](docs/renders/08-colored-lights.png)
+
 ## Run it.
 
 Need Rust. Run:
