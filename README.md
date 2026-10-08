@@ -36,7 +36,7 @@ Ray tracing 3D renderer built from scratch with Rust lang. (in progress)
 
 ![Four balls under yellow and purple lights, rendered from commit 43908ae with the existing colored lights enabled](docs/renders/08-colored-lights.png)
 
-## 9. Reflective balls.
+## 9. Reflective sphere.
 
 ![Four colored balls with subtle reflections, diffuse lighting, and shadows](docs/renders/09-reflections.png)
 
