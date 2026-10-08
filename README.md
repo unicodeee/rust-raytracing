@@ -40,6 +40,10 @@ Ray tracing 3D renderer built from scratch with Rust lang. (in progress)
 
 ![Four colored balls with subtle reflections, diffuse lighting, and shadows](docs/renders/09-reflections.png)
 
+## 10. Refraction and glass-like materials.
+
+![Glass-like balls with transmission and refraction](docs/renders/10-refraction-glass.png)
+
 ## Run it.
 
 Need Rust. Run:
