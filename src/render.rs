@@ -9,10 +9,7 @@ pub fn render(scene: &Scene, camera: &Camera, width: u32, height: u32) -> Film {
             let s = (x as f32 + 0.5) / width as f32;
             let t = 1.0 - (y as f32 + 0.5) / height as f32;
             let ray = camera.ray(s, t);
-            let color = scene
-                .closest_hit(&ray)
-                .map(|hit| scene.shade(&hit, &ray))
-                .unwrap_or(scene.background);
+            let color = scene.trace(&ray);
             film.set_pixel(x, y, color);
         }
     }

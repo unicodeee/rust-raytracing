@@ -14,14 +14,21 @@ pub struct Material {
     pub diffuse_coefficient: Vec3,
     pub specularity: f32,    // ks
     pub phong_constant: f32, // shininess
+    pub reflectivity: Vec3,  // km
 }
 
 impl Material {
-    pub fn new(diffuse_coefficient: Vec3, specularity: f32, phong_constant: f32) -> Self {
+    pub fn new(
+        diffuse_coefficient: Vec3,
+        specularity: f32,
+        phong_constant: f32,
+        reflectivity: Vec3,
+    ) -> Self {
         Self {
             diffuse_coefficient,
             specularity,
             phong_constant,
+            reflectivity: reflectivity.clamp(Vec3::ZERO, Vec3::ONE),
         }
     }
 }
