@@ -22,32 +22,9 @@ fn render_view(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const CAMERA_HEIGHT: f32 = 1.6;
-    let scene = Scene::init();
-    let target = Vec3::new(0.0, -0.2, 0.0);
-    render_view(
-        &scene,
-        "output_front.png",
-        Vec3::new(0.0, CAMERA_HEIGHT, -5.0),
-        target,
-    )?;
-    render_view(
-        &scene,
-        "output_right.png",
-        Vec3::new(5.0, CAMERA_HEIGHT, 0.0),
-        target,
-    )?;
-    render_view(
-        &scene,
-        "output_back.png",
-        Vec3::new(0.0, CAMERA_HEIGHT, 5.0),
-        target,
-    )?;
-    render_view(
-        &scene,
-        "output_left.png",
-        Vec3::new(-5.0, CAMERA_HEIGHT, 0.0),
-        target,
-    )?;
+    // Randomly selected lime green: #BBEB46.
+    let scene = Scene::pyramid([187, 235, 70, 255]);
+    let target = Vec3::new(0.0, 0.0, 0.0);
+    render_view(&scene, "pyramid.png", Vec3::new(3.2, 2.1, -5.5), target)?;
     Ok(())
 }

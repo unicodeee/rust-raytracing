@@ -1,4 +1,5 @@
 use crate::light::Light;
+use crate::polymesh::{PolyMesh, Triangle};
 use crate::ray::Ray;
 use crate::shapes::{Hit, Material, Plane, Shape, Sphere};
 use glam::Vec3;
@@ -22,32 +23,33 @@ impl Scene {
     }
 
     pub fn init() -> Self {
-        let reflectivity = Vec3::splat(0.15);
-        let plane_material = Material::new(Vec3::splat(0.5), 0.4, 1000.0, Vec3::splat(0.05), 0.0, 0.0);
+        let blue = [35, 105, 235, 255];
+        let plane_material =
+            Material::new(Vec3::splat(0.5), 0.25, 64.0, Vec3::splat(0.05), 0.0, 0.0);
         let objects: Vec<Box<dyn Shape>> = vec![
             Box::new(Sphere::new(
-                Vec3::new(-0.9, 0.0, 0.6),
-                0.9,
-                [220, 30, 30, 255],
-                Material::new(Vec3::splat(0.5), 0.4, 10000.0, Vec3::splat(0.05), 0.5, 1.5),
+                Vec3::new(-2.55, -0.1, 0.5),
+                0.7,
+                blue,
+                Material::new(Vec3::splat(0.5), 0.5, 8.0, Vec3::splat(0.05), 0.0, 0.0),
             )),
             Box::new(Sphere::new(
-                Vec3::new(1.0, -0.3, 0.7),
-                0.6,
-                [30, 200, 60, 255],
-                Material::new(Vec3::splat(0.5), 0.4, 1000.0, Vec3::ZERO, 0.5, 1.5),
+                Vec3::new(-0.85, -0.1, 0.5),
+                0.7,
+                blue,
+                Material::new(Vec3::splat(0.5), 0.5, 32.0, Vec3::splat(0.05), 0.0, 0.0),
             )),
             Box::new(Sphere::new(
-                Vec3::new(-0.1, -0.55, -0.9),
-                0.35,
-                [40, 80, 220, 255],
-                Material::new(Vec3::splat(0.5), 0.4, 100.0, Vec3::ONE, 0.0, 1.5),
+                Vec3::new(0.85, -0.1, 0.5),
+                0.7,
+                blue,
+                Material::new(Vec3::splat(0.5), 0.5, 128.0, Vec3::splat(0.05), 0.0, 0.0),
             )),
             Box::new(Sphere::new(
-                Vec3::new(0.95, -0.65, -0.9),
-                0.25,
-                [230, 190, 30, 255],
-                Material::new(Vec3::splat(0.5), 0.4, 10.0, reflectivity, 1.0, 1.5),
+                Vec3::new(2.55, -0.1, 0.5),
+                0.7,
+                blue,
+                Material::new(Vec3::splat(0.5), 0.5, 512.0, Vec3::splat(0.05), 0.0, 0.0),
             )),
             Box::new(Plane::new(
                 Vec3::new(0.0, -0.9, 0.0),
@@ -56,10 +58,65 @@ impl Scene {
             )),
         ];
         let lights = vec![
-            Light::new(Vec3::new(-4.0, 4.0, -4.0), Vec3::new(1.0, 1.0, 0.0)),
-            Light::new(Vec3::new(4.0, 4.0, -4.0), Vec3::new(0.8, 0.1, 1.0)),
+            Light::new(Vec3::new(-4.0, 5.0, -4.0), Vec3::splat(1.0)),
+            Light::new(Vec3::new(4.0, 3.0, -2.0), Vec3::splat(0.35)),
         ];
-        Self::new(objects, lights, [20, 200, 255, 255])
+        Self::new(objects, lights, [18, 24, 42, 255])
+    }
+
+    pub fn pyramid(color: [u8; 4]) -> Self {
+        let vertices = vec![
+            Vec3::new(-1.2, -0.9, 1.2),
+            Vec3::new(1.2, -0.9, 1.2),
+            Vec3::new(1.2, -0.9, -1.2),
+            Vec3::new(-1.2, -0.9, -1.2),
+            Vec3::new(0.0, 1.4, 0.0),
+        ];
+        let faces = [
+            [0, 3, 2],
+            [0, 2, 1],
+            [0, 1, 4],
+            [1, 2, 4],
+            [2, 3, 4],
+            [3, 0, 4],
+        ];
+        let normals: Vec<_> = faces
+            .iter()
+            .map(|&[i, j, k]| {
+                (vertices[j as usize] - vertices[i as usize])
+                    .cross(vertices[k as usize] - vertices[i as usize])
+                    .normalize()
+            })
+            .collect();
+        let triangles = faces
+            .iter()
+            .enumerate()
+            .map(|(normal, &vertices)| Triangle {
+                vertices,
+                normals: [normal as u32; 3],
+            })
+            .collect();
+        let pyramid = PolyMesh::new(
+            vertices,
+            normals,
+            triangles,
+            color,
+            Material::new(Vec3::splat(0.85), 0.35, 48.0, Vec3::splat(0.08), 0.0, 1.0),
+        );
+        let floor = Plane::new(
+            Vec3::new(0.0, -0.91, 0.0),
+            Vec3::Y,
+            Material::new(Vec3::splat(0.45), 0.1, 24.0, Vec3::splat(0.04), 0.0, 1.0),
+        );
+
+        Self::new(
+            vec![Box::new(pyramid), Box::new(floor)],
+            vec![
+                Light::new(Vec3::new(-4.0, 5.0, -4.0), Vec3::splat(1.0)),
+                Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::splat(0.3)),
+            ],
+            [18, 24, 42, 255],
+        )
     }
 
     pub fn closest_hit(&self, ray: &Ray) -> Option<Hit> {
@@ -85,13 +142,11 @@ impl Scene {
             return background_to_vec3(self.background);
         };
 
-        let local_color = self.shade(&hit, ray);
+        let local_color = self.shade_pixel(&hit, ray);
         let reflectivity = hit.material.reflectivity;
         let k_t = hit.material.k_t.clamp(0.0, 1.0);
 
-        if depth == 0
-            || (reflectivity.length_squared() < RAY_EPSILON && k_t <= RAY_EPSILON)
-        {
+        if depth == 0 || (reflectivity.length_squared() < RAY_EPSILON && k_t <= RAY_EPSILON) {
             return local_color;
         }
 
@@ -117,39 +172,28 @@ impl Scene {
                 fresnel = 1.0;
             } else {
                 fresnel = schlick(
-                    fresnel_cos(
-                        direction,
-                        refracted_direction,
-                        face_normal,
-                        entering,
-                    ),
+                    fresnel_cos(direction, refracted_direction, face_normal, entering),
                     ior,
                 );
 
                 let refracted_origin = hit.p - RAY_EPSILON * face_normal;
-                let refracted_ray = Ray::new(
-                    refracted_origin,
-                    refracted_direction.normalize(),
-                );
+                let refracted_ray = Ray::new(refracted_origin, refracted_direction.normalize());
 
                 refracted_color = self.trace_color(&refracted_ray, depth - 1);
             }
         }
 
-        let reflection_weight =
-            reflectivity + Vec3::splat(k_t * fresnel);
+        let reflection_weight = reflectivity + Vec3::splat(k_t * fresnel);
 
-        let transmission_weight =
-            Vec3::splat(k_t * (1.0 - fresnel));
+        let transmission_weight = Vec3::splat(k_t * (1.0 - fresnel));
 
-        let local_weight =
-            (Vec3::ONE - reflectivity - Vec3::splat(k_t)).max(Vec3::ZERO);
+        let local_weight = (Vec3::ONE - reflectivity - Vec3::splat(k_t)).max(Vec3::ZERO);
 
         local_color * local_weight
             + reflected_color * reflection_weight
             + refracted_color * transmission_weight
     }
-    pub fn shade(&self, hit: &Hit, ray: &Ray) -> Vec3 {
+    pub fn shade_pixel(&self, hit: &Hit, ray: &Ray) -> Vec3 {
         let view_direction = -ray.direction();
         let mut lighting = Vec3::ZERO;
         let surface_color = Vec3::new(
@@ -192,7 +236,6 @@ impl Scene {
     }
 }
 
-
 fn schlick(cos_theta: f32, n_t: f32) -> f32 {
     let r0 = ((n_t - 1.0) / (n_t + 1.0)).powi(2); // head-on reflectance: 0.04 for glass
     r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
@@ -203,7 +246,6 @@ fn schlick(cos_theta: f32, n_t: f32) -> f32 {
 fn fresnel_cos(d: Vec3, t: Vec3, n_f: Vec3, entering: bool) -> f32 {
     if entering { -d.dot(n_f) } else { -t.dot(n_f) }
 }
-
 
 fn background_to_vec3(background: [u8; 4]) -> Vec3 {
     Vec3::new(

@@ -1,9 +1,26 @@
 use crate::ray::Ray;
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use std::rc::Rc;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Transform {
+    pub translation: Vec3,
+    pub rotation: Quat,
+    pub scale: Vec3,
+}
+
+impl Transform {
+    pub const IDENTITY: Self = Self {
+        translation: Vec3::ZERO,
+        rotation: Quat::IDENTITY,
+        scale: Vec3::ONE,
+    };
+}
 
 pub trait Shape {
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit>;
+
+    fn transform(&self) -> &Transform;
 
     fn hit_with_ray(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<Hit> {
         self.hit(ray.origin(), ray.direction(), t_min, t_max)
@@ -44,6 +61,7 @@ pub struct Plane {
     up: Vec3, // up vector
     color: [u8; 4],
     material: Rc<Material>,
+    pub transform: Transform,
 }
 
 impl Plane {
@@ -54,11 +72,16 @@ impl Plane {
             up: up.try_normalize().expect("plane normal must not be zero"),
             color: default_color,
             material: Rc::new(material),
+            transform: Transform::IDENTITY,
         }
     }
 }
 
 impl Shape for Plane {
+    fn transform(&self) -> &Transform {
+        &self.transform
+    }
+
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
         let denominator = d.dot(self.up);
 
@@ -89,6 +112,7 @@ pub struct Sphere {
     pub radius: f32,
     pub color: [u8; 4],
     pub material: Rc<Material>,
+    pub transform: Transform,
 }
 
 pub struct Hit {
@@ -100,7 +124,7 @@ pub struct Hit {
 }
 
 impl Hit {
-    fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4], material: Rc<Material>) -> Self {
+    pub(crate) fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4], material: Rc<Material>) -> Self {
         Self {
             t,
             p,
@@ -119,11 +143,16 @@ impl Sphere {
             radius,
             color,
             material: Rc::new(material),
+            transform: Transform::IDENTITY,
         }
     }
 }
 
 impl Shape for Sphere {
+    fn transform(&self) -> &Transform {
+        &self.transform
+    }
+
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
         let ec = e - self.origin;
         let a = d.dot(d); // A
