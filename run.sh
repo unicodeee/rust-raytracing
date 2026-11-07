@@ -1,7 +1,6 @@
 
 
-cargo run
-open output_front.png
-open output_left.png
-open output_right.png
-open output_back.png
+cargo run --release -- vase
+open docs/renders/vase_front.png
+open docs/renders/vase_left.png
+open docs/renders/vase_right.png
