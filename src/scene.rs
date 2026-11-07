@@ -1,5 +1,5 @@
 use crate::light::Light;
-use crate::polymesh::{PolyMesh, Triangle};
+use crate::polymesh::load_obj;
 use crate::ray::Ray;
 use crate::shapes::{Hit, Material, Plane, Shape, Sphere};
 use glam::Vec3;
@@ -65,44 +65,15 @@ impl Scene {
     }
 
     pub fn pyramid(color: [u8; 4]) -> Self {
-        let vertices = vec![
-            Vec3::new(-1.2, -0.9, 1.2),
-            Vec3::new(1.2, -0.9, 1.2),
-            Vec3::new(1.2, -0.9, -1.2),
-            Vec3::new(-1.2, -0.9, -1.2),
-            Vec3::new(0.0, 1.4, 0.0),
-        ];
-        let faces = [
-            [0, 3, 2],
-            [0, 2, 1],
-            [0, 1, 4],
-            [1, 2, 4],
-            [2, 3, 4],
-            [3, 0, 4],
-        ];
-        let normals: Vec<_> = faces
-            .iter()
-            .map(|&[i, j, k]| {
-                (vertices[j as usize] - vertices[i as usize])
-                    .cross(vertices[k as usize] - vertices[i as usize])
-                    .normalize()
-            })
-            .collect();
-        let triangles = faces
-            .iter()
-            .enumerate()
-            .map(|(normal, &vertices)| Triangle {
-                vertices,
-                normals: [normal as u32; 3],
-            })
-            .collect();
-        let pyramid = PolyMesh::new(
-            vertices,
-            normals,
-            triangles,
+        let mut pyramid = load_obj(
+            include_str!("../objects/pyramid_hard.obj"),
             color,
             Material::new(Vec3::splat(0.85), 0.35, 48.0, Vec3::splat(0.08), 0.0, 1.0),
-        );
+        )
+        .expect("bundled pyramid OBJ must be valid");
+        for vertex in &mut pyramid.vertices {
+            *vertex = *vertex * 1.2 + Vec3::new(0.0, -0.9, 0.0);
+        }
         let floor = Plane::new(
             Vec3::new(0.0, -0.91, 0.0),
             Vec3::Y,

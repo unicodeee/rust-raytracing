@@ -2,6 +2,8 @@
 
 use crate::shapes::{Hit, Material, Shape, Transform};
 use glam::Vec3;
+use std::error::Error;
+use std::fmt;
 use std::rc::Rc;
 
 /// Three position indices and three independently indexed vertex normals.
@@ -138,6 +140,172 @@ impl PolyMesh {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjError {
+    pub line: usize,
+    pub message: String,
+}
+
+impl ObjError {
+    fn new(line: usize, message: impl Into<String>) -> Self {
+        Self {
+            line,
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for ObjError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "OBJ line {}: {}", self.line, self.message)
+    }
+}
+
+impl Error for ObjError {}
+
+#[derive(Clone, Copy)]
+struct ObjCorner {
+    vertex: u32,
+    normal: Option<u32>,
+}
+
+/// Reads triangle positions and vertex normals from Wavefront OBJ text.
+///
+/// Supported face corners are `v`, `v//vn`, and `v/vt/vn`; texture indices
+/// are ignored. Faces must already be triangles. When normals are absent, the
+/// loader computes smooth, area-weighted normals shared by position index.
+pub fn load_obj(text: &str, color: [u8; 4], material: Material) -> Result<PolyMesh, ObjError> {
+    let mut vertices = Vec::new();
+    let mut normals = Vec::new();
+    let mut faces: Vec<[ObjCorner; 3]> = Vec::new();
+
+    for (line_index, source_line) in text.lines().enumerate() {
+        let line_number = line_index + 1;
+        let record = source_line.split('#').next().unwrap_or_default().trim();
+        if record.is_empty() {
+            continue;
+        }
+
+        let mut words = record.split_whitespace();
+        match words.next() {
+            Some("v") => vertices.push(parse_vec3(words, line_number, "vertex")?),
+            Some("vn") => normals.push(
+                parse_vec3(words, line_number, "normal")?
+                    .try_normalize()
+                    .ok_or_else(|| ObjError::new(line_number, "normal must not be zero"))?,
+            ),
+            Some("f") => {
+                let corners: Vec<_> = words
+                    .map(|word| parse_corner(word, line_number))
+                    .collect::<Result<_, _>>()?;
+                if corners.len() != 3 {
+                    return Err(ObjError::new(
+                        line_number,
+                        format!(
+                            "only triangle faces are supported; found {} corners",
+                            corners.len()
+                        ),
+                    ));
+                }
+                faces.push([corners[0], corners[1], corners[2]]);
+            }
+            _ => {}
+        }
+    }
+
+    validate_obj_indices(&faces, vertices.len(), normals.len())?;
+
+    let needs_generated_normals = faces.iter().flatten().any(|corner| corner.normal.is_none());
+    let generated_normal_start = normals.len() as u32;
+    if needs_generated_normals {
+        normals.extend(compute_smooth_normals(&vertices, &faces));
+    }
+
+    let triangles = faces
+        .into_iter()
+        .map(|face| Triangle {
+            vertices: face.map(|corner| corner.vertex),
+            normals: face.map(|corner| {
+                corner
+                    .normal
+                    .unwrap_or(generated_normal_start + corner.vertex)
+            }),
+        })
+        .collect();
+
+    Ok(PolyMesh::new(vertices, normals, triangles, color, material))
+}
+
+fn parse_vec3<'a>(
+    mut words: impl Iterator<Item = &'a str>,
+    line: usize,
+    kind: &str,
+) -> Result<Vec3, ObjError> {
+    let mut values = [0.0; 3];
+    for (axis, value) in values.iter_mut().enumerate() {
+        let word = words.next().ok_or_else(|| {
+            ObjError::new(line, format!("{kind} is missing coordinate {}", axis + 1))
+        })?;
+        *value = word
+            .parse()
+            .map_err(|_| ObjError::new(line, format!("invalid {kind} coordinate `{word}`")))?;
+    }
+    Ok(Vec3::from_array(values))
+}
+
+fn parse_corner(word: &str, line: usize) -> Result<ObjCorner, ObjError> {
+    let fields: Vec<_> = word.split('/').collect();
+    let vertex = parse_obj_index(fields[0], line, "vertex")?;
+    let normal = fields
+        .get(2)
+        .filter(|field| !field.is_empty())
+        .map(|field| parse_obj_index(field, line, "normal"))
+        .transpose()?;
+    Ok(ObjCorner { vertex, normal })
+}
+
+fn parse_obj_index(word: &str, line: usize, kind: &str) -> Result<u32, ObjError> {
+    let one_based: u32 = word
+        .parse()
+        .map_err(|_| ObjError::new(line, format!("invalid positive {kind} index `{word}`")))?;
+    one_based
+        .checked_sub(1)
+        .ok_or_else(|| ObjError::new(line, "OBJ indices are one-based; zero is invalid"))
+}
+
+fn validate_obj_indices(
+    faces: &[[ObjCorner; 3]],
+    vertex_count: usize,
+    normal_count: usize,
+) -> Result<(), ObjError> {
+    for face in faces {
+        for corner in face {
+            if corner.vertex as usize >= vertex_count {
+                return Err(ObjError::new(0, "face vertex index is out of bounds"));
+            }
+            if corner
+                .normal
+                .is_some_and(|normal| normal as usize >= normal_count)
+            {
+                return Err(ObjError::new(0, "face normal index is out of bounds"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn compute_smooth_normals(vertices: &[Vec3], faces: &[[ObjCorner; 3]]) -> Vec<Vec3> {
+    let mut normals = vec![Vec3::ZERO; vertices.len()];
+    for face in faces {
+        let [i, j, k] = face.map(|corner| corner.vertex as usize);
+        let face_normal = (vertices[j] - vertices[i]).cross(vertices[k] - vertices[i]);
+        normals[i] += face_normal;
+        normals[j] += face_normal;
+        normals[k] += face_normal;
+    }
+    normals.into_iter().map(Vec3::normalize_or_zero).collect()
+}
+
 impl Shape for PolyMesh {
     fn transform(&self) -> &Transform {
         &self.transform
@@ -244,5 +412,58 @@ mod tests {
 
         assert_eq!(mesh.triangles[0].vertices[0], mesh.triangles[1].vertices[0]);
         assert_ne!(mesh.triangles[0].normals[0], mesh.triangles[1].normals[0]);
+    }
+
+    #[test]
+    fn obj_loader_keeps_position_and_normal_indices_independent() {
+        let obj = "\
+v 0 0 0
+v 1 0 0
+v 0 1 0
+v 0 0 1
+vn 0 0 1
+vn 0 1 0
+f 1//1 2//1 3//1
+f 1//2 4//2 2//2
+";
+        let mesh = load_obj(obj, [255; 4], matte()).unwrap();
+
+        assert_eq!(mesh.triangles[0].vertices[0], mesh.triangles[1].vertices[0]);
+        assert_ne!(mesh.triangles[0].normals[0], mesh.triangles[1].normals[0]);
+    }
+
+    #[test]
+    fn obj_loader_computes_missing_normals() {
+        let mesh = load_obj("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3", [255; 4], matte()).unwrap();
+
+        assert_eq!(mesh.normals, vec![Vec3::Z; 3]);
+        assert_eq!(mesh.triangles[0].normals, [0, 1, 2]);
+    }
+
+    #[test]
+    fn obj_loader_rejects_non_triangle_faces() {
+        let error = load_obj(
+            "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4",
+            [255; 4],
+            matte(),
+        )
+        .err()
+        .unwrap();
+
+        assert!(error.message.contains("only triangle faces"));
+    }
+
+    #[test]
+    fn bundled_obj_models_load() {
+        let capuchino =
+            load_obj(include_str!("../objects/capuchino.obj"), [255; 4], matte()).unwrap();
+        let vase = load_obj(include_str!("../objects/vase.obj"), [255; 4], matte()).unwrap();
+
+        assert_eq!(
+            (capuchino.vertices.len(), capuchino.triangles.len()),
+            (33_120, 50_000)
+        );
+        assert_eq!((vase.vertices.len(), vase.triangles.len()), (8, 12));
+        assert_eq!(vase.normals.len(), vase.vertices.len());
     }
 }
