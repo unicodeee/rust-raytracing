@@ -65,8 +65,16 @@ impl Scene {
     }
 
     pub fn pyramid(color: [u8; 4]) -> Self {
+        Self::pyramid_from_obj(include_str!("../objects/pyramid_hard.obj"), color)
+    }
+
+    pub fn smooth_pyramid(color: [u8; 4]) -> Self {
+        Self::pyramid_from_obj(include_str!("../objects/pyramid_smooth.obj"), color)
+    }
+
+    fn pyramid_from_obj(obj: &str, color: [u8; 4]) -> Self {
         let mut pyramid = load_obj(
-            include_str!("../objects/pyramid_hard.obj"),
+            obj,
             color,
             Material::new(Vec3::splat(0.85), 0.35, 48.0, Vec3::splat(0.08), 0.0, 1.0),
         )
@@ -86,6 +94,66 @@ impl Scene {
                 Light::new(Vec3::new(-4.0, 5.0, -4.0), Vec3::splat(1.0)),
                 Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::splat(0.3)),
             ],
+            [18, 24, 42, 255],
+        )
+    }
+
+    pub fn vase_scene() -> Self {
+        let vase = load_obj(
+            include_str!("../objects/vase_scene_vase.obj"),
+            [64, 174, 166, 255],
+            Material::new(Vec3::splat(0.72), 0.45, 96.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled vase OBJ must be valid");
+        let table = load_obj(
+            include_str!("../objects/vase_scene_table.obj"),
+            [126, 79, 48, 255],
+            Material::new(Vec3::splat(0.65), 0.12, 24.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled table OBJ must be valid");
+        let floor = Plane::with_color(
+            Vec3::new(0.0, -2.0, 0.0),
+            Vec3::Y,
+            [192, 202, 216, 255],
+            Material::new(Vec3::splat(0.55), 0.05, 12.0, Vec3::ZERO, 0.0, 1.0),
+        );
+        let wall = Plane::with_color(
+            Vec3::new(0.0, 0.0, 2.8),
+            -Vec3::Z,
+            [192, 202, 216, 255],
+            Material::new(Vec3::splat(0.55), 0.05, 12.0, Vec3::ZERO, 0.0, 1.0),
+        );
+
+        Self::new(
+            vec![
+                Box::new(vase),
+                Box::new(table),
+                Box::new(floor),
+                Box::new(wall),
+            ],
+            vec![
+                Light::new(Vec3::new(-3.5, 4.5, -4.0), Vec3::new(1.0, 0.82, 0.68)),
+                Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::new(0.35, 0.5, 0.8)),
+                Light::new(Vec3::new(0.0, 4.0, 2.0), Vec3::splat(0.3)),
+            ],
+            [24, 30, 42, 255],
+        )
+    }
+
+    pub fn capuchino_scene() -> Self {
+        let mut model = load_obj(
+            include_str!("../objects/capuchino.obj"),
+            [205, 112, 82, 255],
+            Material::new(Vec3::splat(0.75), 0.25, 48.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled capuchino OBJ must be valid");
+        for vertex in &mut model.vertices {
+            *vertex *= 1.35;
+        }
+
+        Self::new(
+            vec![Box::new(model)],
+            vec![Light::new(Vec3::new(-3.0, 4.0, -4.0), Vec3::ONE)],
             [18, 24, 42, 255],
         )
     }

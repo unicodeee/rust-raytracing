@@ -66,11 +66,14 @@ pub struct Plane {
 
 impl Plane {
     pub fn new(origin: Vec3, up: Vec3, material: Material) -> Self {
-        let default_color: [u8; 4] = [135, 206, 250, 255];
+        Self::with_color(origin, up, [135, 206, 250, 255], material)
+    }
+
+    pub fn with_color(origin: Vec3, up: Vec3, color: [u8; 4], material: Material) -> Self {
         Self {
             origin,
             up: up.try_normalize().expect("plane normal must not be zero"),
-            color: default_color,
+            color,
             material: Rc::new(material),
             transform: Transform::IDENTITY,
         }
