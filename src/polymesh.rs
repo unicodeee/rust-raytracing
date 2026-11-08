@@ -607,6 +607,12 @@ f 1 4 2
         let capuchino =
             load_obj(include_str!("../objects/capuchino.obj"), [255; 4], matte()).unwrap();
         let vase = load_obj(include_str!("../objects/vase.obj"), [255; 4], matte()).unwrap();
+        let story = load_obj(
+            include_str!("../objects/capuchino_murder_scene.obj"),
+            [255; 4],
+            matte(),
+        )
+        .unwrap();
 
         assert_eq!(
             (capuchino.vertices.len(), capuchino.triangles.len()),
@@ -615,6 +621,10 @@ f 1 4 2
         assert_eq!(
             (vase.vertices.len(), vase.triangles.len()),
             (36_944, 73_884)
+        );
+        assert_eq!(
+            (story.vertices.len(), story.triangles.len()),
+            (66_276, 100_018)
         );
         assert_eq!(vase.normals.len(), vase.triangles.len() * 3);
     }

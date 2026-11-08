@@ -92,6 +92,14 @@ scene as the vase, without modifying the OBJ file:
 
 ![Supplied capuchino OBJ](docs/renders/capuchino_obj.png)
 
+`objects/capuchino_murder_scene.obj` is a generated, triangle-only story asset
+containing two transformed copies of the character. One remains standing with
+an angry expression and weapon pose; the other lies sideways with X eyes and a
+defeated mouth. The dark expression overlay is also saved separately so the
+renderer can give it a contrasting material:
+
+![Stylized capuchino story scene](docs/renders/capuchino_story.png)
+
 The updated Tinkercad `objects/vase.obj` contains 36,944 vertices and 73,884
 triangles. It has no normal records, so the loader generates normals with the
 lecture's 35-degree crease rule: the curved body remains smooth while the lip,
@@ -150,6 +158,10 @@ cargo run --release -- pyramid-smooth
 # Full 50,000-triangle supplied OBJ in the table-and-studio scene
 cargo run --release -- capuchino
 
+# Two-character stylized capuchino story scene
+python3 tools/generate_capuchino_story.py
+cargo run --release -- capuchino-story
+
 # Tests and static checks
 cargo test
 cargo clippy --all-targets -- -D warnings
@@ -177,6 +189,7 @@ computer):
 | Hard pyramid | 640 × 480 | `00h 00m 00.043s` |
 | Smooth pyramid | 640 × 480 | `00h 00m 00.072s` |
 | Capuchino OBJ | 640 × 480 | `00h 00m 44.356s` |
+| Capuchino story | 640 × 480 | `00h 01m 48.765s` |
 | Vase front | 640 × 480 | `00h 00m 46.292s` |
 | Vase left | 640 × 480 | `00h 00m 37.576s` |
 | Vase right | 640 × 480 | `00h 00m 44.741s` |

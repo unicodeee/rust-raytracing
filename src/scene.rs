@@ -1,5 +1,5 @@
 use crate::light::Light;
-use crate::polymesh::load_obj;
+use crate::polymesh::{PolyMesh, load_obj};
 use crate::ray::Ray;
 use crate::shapes::{Hit, Material, Plane, Shape, Sphere};
 use glam::Vec3;
@@ -14,6 +14,24 @@ fn bounds(vertices: &[Vec3]) -> (Vec3, Vec3) {
         (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
         |(minimum, maximum), &vertex| (minimum.min(vertex), maximum.max(vertex)),
     )
+}
+
+fn fit_y_up_on_table(mesh: &mut PolyMesh) {
+    let (minimum, maximum) = bounds(&mesh.vertices);
+    fit_y_up_to_bounds(mesh, minimum, maximum);
+}
+
+fn fit_y_up_to_bounds(mesh: &mut PolyMesh, minimum: Vec3, maximum: Vec3) {
+    let center = (minimum + maximum) * 0.5;
+    let scale = STUDIO_SUBJECT_HEIGHT / (maximum.y - minimum.y);
+    for vertex in &mut mesh.vertices {
+        *vertex = Vec3::new(
+            (vertex.x - center.x) * scale,
+            (vertex.y - minimum.y) * scale + TABLE_TOP_Y,
+            (vertex.z - center.z) * scale,
+        );
+    }
+    mesh.update_bounds();
 }
 
 pub struct Scene {
@@ -130,7 +148,7 @@ impl Scene {
         }
         vase.update_bounds();
 
-        Self::table_studio(Box::new(vase))
+        Self::table_studio(vec![Box::new(vase)])
     }
 
     pub fn capuchino_scene() -> Self {
@@ -140,25 +158,38 @@ impl Scene {
             Material::new(Vec3::splat(0.75), 0.25, 48.0, Vec3::ZERO, 0.0, 1.0),
         )
         .expect("bundled capuchino OBJ must be valid");
-        let (minimum, maximum) = bounds(&model.vertices);
-        let center = (minimum + maximum) * 0.5;
-        let scale = STUDIO_SUBJECT_HEIGHT / (maximum.y - minimum.y);
         for vertex in &mut model.vertices {
-            *vertex = Vec3::new(
-                -(vertex.x - center.x) * scale,
-                (vertex.y - minimum.y) * scale + TABLE_TOP_Y,
-                -(vertex.z - center.z) * scale,
-            );
+            *vertex = Vec3::new(-vertex.x, vertex.y, -vertex.z);
         }
         for normal in &mut model.normals {
             *normal = Vec3::new(-normal.x, normal.y, -normal.z);
         }
-        model.update_bounds();
+        fit_y_up_on_table(&mut model);
 
-        Self::table_studio(Box::new(model))
+        Self::table_studio(vec![Box::new(model)])
     }
 
-    fn table_studio(subject: Box<dyn Shape>) -> Self {
+    pub fn capuchino_story_scene() -> Self {
+        let mut model = load_obj(
+            include_str!("../objects/capuchino_murder_scene.obj"),
+            [190, 92, 70, 255],
+            Material::new(Vec3::splat(0.75), 0.25, 48.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled capuchino story OBJ must be valid");
+        let mut expressions = load_obj(
+            include_str!("../objects/capuchino_murder_expressions.obj"),
+            [42, 20, 18, 255],
+            Material::new(Vec3::splat(0.65), 0.05, 12.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled capuchino expressions OBJ must be valid");
+        let (minimum, maximum) = bounds(&model.vertices);
+        fit_y_up_to_bounds(&mut model, minimum, maximum);
+        fit_y_up_to_bounds(&mut expressions, minimum, maximum);
+
+        Self::table_studio(vec![Box::new(model), Box::new(expressions)])
+    }
+
+    fn table_studio(mut subjects: Vec<Box<dyn Shape>>) -> Self {
         let table = load_obj(
             include_str!("../objects/vase_scene_table.obj"),
             [126, 79, 48, 255],
@@ -178,8 +209,14 @@ impl Scene {
             Material::new(Vec3::splat(0.55), 0.05, 12.0, Vec3::ZERO, 0.0, 1.0),
         );
 
+        subjects.extend([
+            Box::new(table) as Box<dyn Shape>,
+            Box::new(floor),
+            Box::new(wall),
+        ]);
+
         Self::new(
-            vec![subject, Box::new(table), Box::new(floor), Box::new(wall)],
+            subjects,
             vec![
                 Light::new(Vec3::new(-3.5, 4.5, -4.0), Vec3::new(1.0, 0.82, 0.68)),
                 Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::new(0.35, 0.5, 0.8)),
