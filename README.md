@@ -51,10 +51,18 @@ three position indices and three independent normal indices, so one position
 can use a different normal on each adjoining face. This is required for hard
 edges and matches OBJ's `v//vn` face-corner representation.
 
-The mesh hit test linearly calls `Triangle::hit` for every triangle and keeps
-the closest result. A triangle uses Moller-Trumbore intersection. Its
-barycentric coordinates weight the three vertex normals before the resulting
-normal is normalized and sent to the lighting code.
+The mesh hit test linearly calls `Triangle::hit` for every triangle, shortens
+the allowed maximum distance after each hit, and keeps the closest result. A
+triangle uses Moller-Trumbore intersection and returns `t`, beta, and gamma.
+After the closest triangle is known, alpha is computed as
+`1 - beta - gamma` and the shading normal is interpolated as
+`normalize(alpha * na + beta * nb + gamma * nc)`.
+
+Every mesh hit keeps both normals required by the lecture: `n` is the smooth,
+interpolated shading normal and `ng` is the flat geometric face normal.
+Lighting uses `n`, while shadow, reflection, and refraction ray origins are
+offset using `ng`. The shadow test also handles the terminator disagreement
+where `n` faces the light but `ng` does not.
 
 Hard normals (one normal shared by all three corners of each face):
 
@@ -72,7 +80,8 @@ The simplified reader supports:
 - `vn x y z` normals
 - triangle faces written as `f v v v`, `f v//vn ...`, or `f v/vt/vn ...`
 - independent position and normal indices
-- generated area-weighted smooth normals when an OBJ has no `vn` records
+- generated corner normals with a 35-degree crease angle when an OBJ has no
+  `vn` records
 
 It intentionally rejects quads and n-gons, and it ignores texture coordinates,
 materials, groups, and smoothing-group records.
@@ -84,10 +93,11 @@ is rendered at 192 x 192. The full model is still loaded and intersected:
 ![Supplied capuchino OBJ](docs/renders/capuchino_obj.png)
 
 The updated Tinkercad `objects/vase.obj` contains 36,944 vertices and 73,884
-triangles. It has no normal records, so the loader generates area-weighted
-smooth normals. The scene converts Tinkercad's Z-up coordinates to the
-renderer’s Y-up coordinates, centers the vase, and scales it onto the tabletop
-without modifying the OBJ file.
+triangles. It has no normal records, so the loader generates normals with the
+lecture's 35-degree crease rule: the curved body remains smooth while the lip,
+neck, and base can remain sharp. The scene converts Tinkercad's Z-up
+coordinates to the renderer’s Y-up coordinates, centers the vase, and scales
+it onto the tabletop without modifying the OBJ file.
 
 ## How the vase scene was made
 
@@ -148,6 +158,31 @@ cargo clippy --all-targets -- -D warnings
 Each completed image prints its render time as hours, minutes, and seconds,
 for example `render time: 00h 00m 59.477s`.
 
+## Submission outputs
+
+Submit the source and OBJ files together with these rendered results:
+
+- `docs/renders/pyramid_hard.png` — separate face normals
+- `docs/renders/pyramid_smooth.png` — interpolated shared normals
+- `docs/renders/capuchino_obj.png` — supplied public OBJ loaded by the reader
+- `docs/renders/vase_front.png` — vase scene, front three-quarter camera
+- `docs/renders/vase_left.png` — vase scene, left camera
+- `docs/renders/vase_right.png` — vase scene, right camera
+
+Latest release-render timings from the submitted images (times vary by
+computer):
+
+| Image | Resolution | Render time |
+| --- | ---: | ---: |
+| Hard pyramid | 640 × 480 | `00h 00m 00.043s` |
+| Smooth pyramid | 640 × 480 | `00h 00m 00.072s` |
+| Capuchino OBJ | 192 × 192 | `00h 00m 05.193s` |
+| Vase front | 640 × 480 | `00h 00m 46.292s` |
+| Vase left | 640 × 480 | `00h 00m 37.576s` |
+| Vase right | 640 × 480 | `00h 00m 44.741s` |
+
+The OBJ files themselves are unchanged by rendering. Position conversion,
+centering, scaling, material assignment, and camera placement happen in code.
 The timed presentation outline is in [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 
 ## To be continued... 😆

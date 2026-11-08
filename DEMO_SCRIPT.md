@@ -32,9 +32,17 @@ triangle.”
 **Screen:** `Triangle::hit`, then `impl Shape for PolyMesh`.
 
 **Say:** “Each triangle uses Moller-Trumbore intersection. Beta and gamma give
-the barycentric weights. Those weights interpolate the three vertex normals.
-The whole-mesh hit function linearly calls each triangle, shortens the maximum
-distance, and returns the closest hit.”
+the barycentric weights, with alpha equal to one minus beta minus gamma. The
+whole-mesh hit function linearly calls each triangle, shortens the maximum
+distance, and returns the closest hit. Only then are the three vertex normals
+interpolated.”
+
+**Screen:** `Hit` in `src/shapes.rs`, then the shadow code in `src/scene.rs`.
+
+**Say:** “A hit keeps an interpolated shading normal and the triangle’s true
+geometric normal. Lighting uses the smooth normal; new ray origins use the
+geometric normal to avoid self-intersection. The shadow-terminator check
+handles the case where those normals disagree about the light.”
 
 **Screen:** `pyramid_hard.png`, then `pyramid_smooth.png`.
 
@@ -47,8 +55,9 @@ edges; shared vertex normals create the smooth result.”
 
 **Say:** “The reader supports positions, normals, and triangle faces. It reads
 both double-slash normal syntax and files that also contain ignored texture
-indices. Quads are rejected. When normals are missing, it computes
-area-weighted smooth normals.”
+indices. Quads are rejected. File normals are preserved; when they are
+missing, the loader computes corner normals using the lecture’s 35-degree
+crease rule.”
 
 **Screen:** `capuchino_obj.png`.
 
@@ -61,9 +70,10 @@ at preview resolution because this assignment intentionally uses linear search.�
 `tools/generate_vase_scene.py`.
 
 **Say:** “The detailed vase is the updated Tinkercad export: 36,944 vertices
-and 73,884 triangles. The renderer converts its Z-up coordinates to Y-up and
-generates its missing normals. The committed script makes the table, backdrop,
-and low-poly reference geometry repeatable.”
+and 73,884 triangles. The renderer converts its Z-up coordinates to Y-up,
+centers and scales it in code, and generates its missing crease-aware normals.
+The committed script makes the table, backdrop, and low-poly reference
+geometry repeatable. The original OBJ is not edited.”
 
 ## 2:40–3:10 — Final scene
 
@@ -78,6 +88,7 @@ table demonstrate both normal styles in one scene.”
 **Screen:** terminal with `cargo test` and Clippy results already visible.
 
 **Say:** “All tests pass, including the real supplied OBJ counts, independent
-normal indices, generated normals, interpolation, bounding-box rejection, and
-quad rejection. Each image also reports its render time in hours, minutes, and
-seconds. Clippy passes with warnings treated as errors.”
+normal indices, 35-degree crease handling, barycentric interpolation,
+geometric normals, bounding-box rejection, and quad rejection. Each image also
+reports its render time in hours, minutes, and seconds. Clippy passes with
+warnings treated as errors.”
