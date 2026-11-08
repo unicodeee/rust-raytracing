@@ -29,9 +29,9 @@ pub trait Shape {
 
 pub struct Material {
     pub diffuse_coefficient: Vec3,
-    pub specularity: f32,    // ks
-    pub phong_constant: f32, // shininess
-    pub reflectivity: Vec3,  // k_m
+    pub specularity: f32,
+    pub phong_constant: f32,
+    pub reflectivity: Vec3,
     pub k_t: f32,
     pub ior: f32,
 }
@@ -58,7 +58,7 @@ impl Material {
 
 pub struct Plane {
     origin: Vec3,
-    up: Vec3, // up vector
+    up: Vec3,
     color: [u8; 4],
     material: Rc<Material>,
     pub transform: Transform,
@@ -88,7 +88,6 @@ impl Shape for Plane {
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
         let denominator = d.dot(self.up);
 
-        // The ray is parallel, or nearly parallel, to the plane.
         if denominator.abs() < 1e-6 {
             return None;
         }
@@ -120,10 +119,10 @@ pub struct Sphere {
 }
 
 pub struct Hit {
-    pub t: f32,   // distance
-    pub p: Vec3,  // hit point
-    pub n: Vec3,  // shading normal
-    pub ng: Vec3, // geometric normal
+    pub t: f32,
+    pub p: Vec3,
+    pub n: Vec3,
+    pub ng: Vec3,
     pub triangle: Option<usize>,
     pub beta: f32,
     pub gamma: f32,
@@ -180,19 +179,19 @@ impl Shape for Sphere {
 
     fn hit(&self, e: Vec3, d: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
         let ec = e - self.origin;
-        let a = d.dot(d); // A
-        let b = 2.0 * d.dot(ec); // B
-        let c = ec.dot(ec) - self.radius * self.radius; // C
+        let a = d.dot(d);
+        let b = 2.0 * d.dot(ec);
+        let c = ec.dot(ec) - self.radius * self.radius;
 
         let disc = b * b - 4.0 * a * c;
         if disc < 0.0 {
             return None;
-        } // the ray misses
+        }
         let sq = disc.sqrt();
-        let mut t = (-b - sq) / (2.0 * a); // near root first
+        let mut t = (-b - sq) / (2.0 * a);
 
         if t < t_min || t > t_max {
-            t = (-b + sq) / (2.0 * a); // ...else the far root
+            t = (-b + sq) / (2.0 * a);
             if t < t_min || t > t_max {
                 return None;
             }

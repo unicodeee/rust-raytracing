@@ -6,6 +6,15 @@ use glam::Vec3;
 
 const RAY_EPSILON: f32 = 0.001;
 const MAX_REFLECTION_DEPTH: u32 = 7;
+const TABLE_TOP_Y: f32 = -0.25;
+const STUDIO_SUBJECT_HEIGHT: f32 = 2.25;
+
+fn bounds(vertices: &[Vec3]) -> (Vec3, Vec3) {
+    vertices.iter().fold(
+        (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)),
+        |(minimum, maximum), &vertex| (minimum.min(vertex), maximum.max(vertex)),
+    )
+}
 
 pub struct Scene {
     pub objects: Vec<Box<dyn Shape>>,
@@ -106,24 +115,13 @@ impl Scene {
             Material::new(Vec3::splat(0.72), 0.45, 96.0, Vec3::ZERO, 0.0, 1.0),
         )
         .expect("bundled vase OBJ must be valid");
-        let minimum = vase
-            .vertices
-            .iter()
-            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
-                bounds.min(vertex)
-            });
-        let maximum = vase
-            .vertices
-            .iter()
-            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
-                bounds.max(vertex)
-            });
+        let (minimum, maximum) = bounds(&vase.vertices);
         let center = (minimum + maximum) * 0.5;
-        let scale = 2.25 / (maximum.z - minimum.z);
+        let scale = STUDIO_SUBJECT_HEIGHT / (maximum.z - minimum.z);
         for vertex in &mut vase.vertices {
             *vertex = Vec3::new(
                 (vertex.x - center.x) * scale,
-                (vertex.z - minimum.z) * scale - 0.25,
+                (vertex.z - minimum.z) * scale + TABLE_TOP_Y,
                 -(vertex.y - center.y) * scale,
             );
         }
@@ -131,6 +129,33 @@ impl Scene {
             *normal = Vec3::new(normal.x, normal.z, -normal.y).normalize_or_zero();
         }
         vase.update_bounds();
+
+        Self::table_studio(Box::new(vase))
+    }
+
+    pub fn capuchino_scene() -> Self {
+        let mut model = load_obj(
+            include_str!("../objects/capuchino.obj"),
+            [205, 112, 82, 255],
+            Material::new(Vec3::splat(0.75), 0.25, 48.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled capuchino OBJ must be valid");
+        let (minimum, maximum) = bounds(&model.vertices);
+        let center = (minimum + maximum) * 0.5;
+        let scale = STUDIO_SUBJECT_HEIGHT / (maximum.y - minimum.y);
+        for vertex in &mut model.vertices {
+            *vertex = Vec3::new(
+                (vertex.x - center.x) * scale,
+                (vertex.y - minimum.y) * scale + TABLE_TOP_Y,
+                (vertex.z - center.z) * scale,
+            );
+        }
+        model.update_bounds();
+
+        Self::table_studio(Box::new(model))
+    }
+
+    fn table_studio(subject: Box<dyn Shape>) -> Self {
         let table = load_obj(
             include_str!("../objects/vase_scene_table.obj"),
             [126, 79, 48, 255],
@@ -151,37 +176,13 @@ impl Scene {
         );
 
         Self::new(
-            vec![
-                Box::new(vase),
-                Box::new(table),
-                Box::new(floor),
-                Box::new(wall),
-            ],
+            vec![subject, Box::new(table), Box::new(floor), Box::new(wall)],
             vec![
                 Light::new(Vec3::new(-3.5, 4.5, -4.0), Vec3::new(1.0, 0.82, 0.68)),
                 Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::new(0.35, 0.5, 0.8)),
                 Light::new(Vec3::new(0.0, 4.0, 2.0), Vec3::splat(0.3)),
             ],
             [24, 30, 42, 255],
-        )
-    }
-
-    pub fn capuchino_scene() -> Self {
-        let mut model = load_obj(
-            include_str!("../objects/capuchino.obj"),
-            [205, 112, 82, 255],
-            Material::new(Vec3::splat(0.75), 0.25, 48.0, Vec3::ZERO, 0.0, 1.0),
-        )
-        .expect("bundled capuchino OBJ must be valid");
-        for vertex in &mut model.vertices {
-            *vertex *= 1.35;
-        }
-        model.update_bounds();
-
-        Self::new(
-            vec![Box::new(model)],
-            vec![Light::new(Vec3::new(-3.0, 4.0, -4.0), Vec3::ONE)],
-            [18, 24, 42, 255],
         )
     }
 
@@ -282,9 +283,7 @@ impl Scene {
                 continue;
             }
 
-            // The interpolated shading normal can face the light while the
-            // actual flat triangle faces away. Trust the shading normal in
-            // that disagreement region to avoid a faceted shadow terminator.
+            // Avoid shadow-terminator facets where the normals disagree.
             let geometric_normal = if hit.ng.dot(hit.n) >= 0.0 {
                 hit.ng
             } else {
@@ -324,12 +323,10 @@ impl Scene {
 }
 
 fn schlick(cos_theta: f32, n_t: f32) -> f32 {
-    let r0 = ((n_t - 1.0) / (n_t + 1.0)).powi(2); // head-on reflectance: 0.04 for glass
+    let r0 = ((n_t - 1.0) / (n_t + 1.0)).powi(2);
     r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
 }
-// glass: schlick(cos 0°) = 0.04 (cos 60°) = 0.07 (cos 80°) = 0.41 (cos 90°) = 1.00
-/// Which cosine to feed Schlick: going IN, the incident angle theta;
-/// going OUT, the angle of the REFRACTED ray t (that is the air side).
+/// Selects the Schlick cosine for entering or leaving a surface.
 fn fresnel_cos(d: Vec3, t: Vec3, n_f: Vec3, entering: bool) -> f32 {
     if entering { -d.dot(n_f) } else { -t.dot(n_f) }
 }

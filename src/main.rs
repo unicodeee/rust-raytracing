@@ -58,10 +58,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "capuchino" => render_view(
             &Scene::capuchino_scene(),
             "docs/renders/capuchino_obj.png",
-            Vec3::new(2.4, 1.8, -3.6),
+            Vec3::new(3.8, 2.2, -6.2),
             Vec3::ZERO,
-            192,
-            192,
+            640,
+            480,
         )?,
         _ => {
             return Err(format!(

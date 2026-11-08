@@ -87,8 +87,8 @@ It intentionally rejects quads and n-gons, and it ignores texture coordinates,
 materials, groups, and smoothing-group records.
 
 The supplied `objects/capuchino.obj` loads as 33,120 vertices and 50,000
-triangles. Because this assignment requires linear triangle search, its preview
-is rendered at 192 x 192. The full model is still loaded and intersected:
+triangles. It is centered and uniformly scaled onto the same table-and-studio
+scene as the vase, without modifying the OBJ file:
 
 ![Supplied capuchino OBJ](docs/renders/capuchino_obj.png)
 
@@ -99,11 +99,11 @@ neck, and base can remain sharp. The scene converts Tinkercad's Z-up
 coordinates to the renderer’s Y-up coordinates, centers the vase, and scales
 it onto the tabletop without modifying the OBJ file.
 
-## How the vase scene was made
+## How the studio scenes were made
 
-The scene contains the detailed Tinkercad vase, a table made from five boxes, a
-floor/wall studio backdrop, and three lights. The table and reference scene
-meshes are in `objects/vase_scene_*.obj`.
+The vase and capuchino renders share a table made from five boxes, a floor/wall
+studio backdrop, and three lights. The table and reference scene meshes are in
+`objects/vase_scene_*.obj`.
 
 ### Blender workflow
 
@@ -147,7 +147,7 @@ cargo run --release -- vase
 cargo run --release -- pyramid
 cargo run --release -- pyramid-smooth
 
-# Full 50,000-triangle supplied OBJ at preview resolution
+# Full 50,000-triangle supplied OBJ in the table-and-studio scene
 cargo run --release -- capuchino
 
 # Tests and static checks
@@ -176,7 +176,7 @@ computer):
 | --- | ---: | ---: |
 | Hard pyramid | 640 × 480 | `00h 00m 00.043s` |
 | Smooth pyramid | 640 × 480 | `00h 00m 00.072s` |
-| Capuchino OBJ | 192 × 192 | `00h 00m 05.193s` |
+| Capuchino OBJ | 640 × 480 | `00h 00m 46.719s` |
 | Vase front | 640 × 480 | `00h 00m 46.292s` |
 | Vase left | 640 × 480 | `00h 00m 37.576s` |
 | Vase right | 640 × 480 | `00h 00m 44.741s` |

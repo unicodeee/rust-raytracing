@@ -61,12 +61,13 @@ crease rule.”
 
 **Screen:** `capuchino_obj.png`.
 
-**Say:** “This is the supplied 33,120-vertex, 50,000-triangle OBJ. It is shown
-at preview resolution because this assignment intentionally uses linear search.”
+**Say:** “This is the supplied 33,120-vertex, 50,000-triangle OBJ. Scene code
+centers and scales it onto the same table, backdrop, and three-light studio as
+the vase without changing the OBJ file.”
 
 ## 2:05–2:40 — Scene construction
 
-**Screen:** README’s “How the vase scene was made” section, then
+**Screen:** README’s “How the studio scenes were made” section, then
 `tools/generate_vase_scene.py`.
 
 **Say:** “The detailed vase is the updated Tinkercad export: 36,944 vertices
