@@ -83,14 +83,17 @@ is rendered at 192 x 192. The full model is still loaded and intersected:
 
 ![Supplied capuchino OBJ](docs/renders/capuchino_obj.png)
 
-`objects/vase.obj` is also preserved and tested. It contains 8 vertices and 12
-triangles and has no normals, so it exercises automatic normal generation.
+The updated Tinkercad `objects/vase.obj` contains 36,944 vertices and 73,884
+triangles. It has no normal records, so the loader generates area-weighted
+smooth normals. The scene converts Tinkercad's Z-up coordinates to the
+renderer’s Y-up coordinates, centers the vase, and scales it onto the tabletop
+without modifying the OBJ file.
 
 ## How the vase scene was made
 
-The scene contains a 16-sided lathed vase, a table made from five boxes, a
-floor/wall studio backdrop, and three lights. The generated scene meshes are in
-`objects/vase_scene_*.obj`.
+The scene contains the detailed Tinkercad vase, a table made from five boxes, a
+floor/wall studio backdrop, and three lights. The table and reference scene
+meshes are in `objects/vase_scene_*.obj`.
 
 ### Blender workflow
 
@@ -105,10 +108,10 @@ floor/wall studio backdrop, and three lights. The generated scene meshes are in
 7. Export the vase, table, and backdrop as Wavefront OBJ with **Selection Only**,
    **Triangulate Faces**, **Write Normals**, and **Keep Vertex Order** enabled.
 
-Blender is not installed in the automated development environment, so
+Blender is not installed in the automated development environment. The vase is
+therefore loaded from the Tinkercad export, while
 [`tools/generate_vase_scene.py`](tools/generate_vase_scene.py) reproducibly
-creates the same low-poly lathe, boxes, and backdrop geometry. Running it
-regenerates all three scene OBJ files.
+creates the table, backdrop, and a low-poly reference vase.
 
 ### Three camera angles
 
@@ -141,6 +144,9 @@ cargo run --release -- capuchino
 cargo test
 cargo clippy --all-targets -- -D warnings
 ```
+
+Each completed image prints its render time as hours, minutes, and seconds,
+for example `render time: 00h 00m 59.477s`.
 
 The timed presentation outline is in [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 

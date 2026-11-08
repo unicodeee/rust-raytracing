@@ -97,6 +97,8 @@ pub struct PolyMesh {
     pub color: [u8; 4],
     pub material: Rc<Material>,
     pub transform: Transform,
+    bounds_min: Vec3,
+    bounds_max: Vec3,
 }
 
 impl PolyMesh {
@@ -122,6 +124,17 @@ impl PolyMesh {
             "triangle normal index is out of bounds"
         );
 
+        let bounds_min = vertices
+            .iter()
+            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
+                bounds.min(vertex)
+            });
+        let bounds_max = vertices
+            .iter()
+            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
+                bounds.max(vertex)
+            });
+
         Self {
             vertices,
             normals,
@@ -129,6 +142,8 @@ impl PolyMesh {
             color,
             material: Rc::new(material),
             transform: Transform::IDENTITY,
+            bounds_min,
+            bounds_max,
         }
     }
 
@@ -137,6 +152,48 @@ impl PolyMesh {
         self.triangles
             .iter()
             .map(|&triangle| (triangle.positions(self), triangle.vertex_normals(self)))
+    }
+
+    /// Recomputes the bounding box after callers modify public vertex data.
+    pub fn update_bounds(&mut self) {
+        self.bounds_min = self
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
+                bounds.min(vertex)
+            });
+        self.bounds_max = self
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
+                bounds.max(vertex)
+            });
+    }
+
+    fn bounds_hit(&self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
+        let mut enter = t_min;
+        let mut exit = t_max;
+        for axis in 0..3 {
+            if direction[axis].abs() < 1e-8 {
+                if origin[axis] < self.bounds_min[axis] || origin[axis] > self.bounds_max[axis] {
+                    return false;
+                }
+                continue;
+            }
+
+            let inverse_direction = direction[axis].recip();
+            let mut near = (self.bounds_min[axis] - origin[axis]) * inverse_direction;
+            let mut far = (self.bounds_max[axis] - origin[axis]) * inverse_direction;
+            if near > far {
+                std::mem::swap(&mut near, &mut far);
+            }
+            enter = enter.max(near);
+            exit = exit.min(far);
+            if exit < enter {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -313,6 +370,10 @@ impl Shape for PolyMesh {
 
     /// Tests every triangle linearly and returns the closest hit.
     fn hit(&self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
+        if !self.bounds_hit(origin, direction, t_min, t_max) {
+            return None;
+        }
+
         let mut closest_t = t_max;
         let mut closest = None;
 
@@ -392,6 +453,13 @@ mod tests {
     }
 
     #[test]
+    fn mesh_bounds_reject_a_ray_that_misses_the_mesh() {
+        let mesh = triangle_mesh(vec![Vec3::Z], [0, 0, 0]);
+
+        assert!(!mesh.bounds_hit(Vec3::new(3.0, 0.0, -2.0), Vec3::Z, 0.001, 10.0));
+    }
+
+    #[test]
     fn position_can_use_different_normals_on_different_faces() {
         let mesh = PolyMesh::new(
             vec![Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z],
@@ -463,7 +531,10 @@ f 1//2 4//2 2//2
             (capuchino.vertices.len(), capuchino.triangles.len()),
             (33_120, 50_000)
         );
-        assert_eq!((vase.vertices.len(), vase.triangles.len()), (8, 12));
+        assert_eq!(
+            (vase.vertices.len(), vase.triangles.len()),
+            (36_944, 73_884)
+        );
         assert_eq!(vase.normals.len(), vase.vertices.len());
     }
 }

@@ -60,11 +60,10 @@ at preview resolution because this assignment intentionally uses linear search.�
 **Screen:** README’s “How the vase scene was made” section, then
 `tools/generate_vase_scene.py`.
 
-**Say:** “The README gives the Blender steps: screw a sixteen-segment vase
-profile, assemble the table from boxes, add a floor and wall, place three
-lights, and export triangulated OBJ files with normals. Blender was unavailable
-in this environment, so this committed script reproduces the same geometry and
-makes the OBJ generation repeatable.”
+**Say:** “The detailed vase is the updated Tinkercad export: 36,944 vertices
+and 73,884 triangles. The renderer converts its Z-up coordinates to Y-up and
+generates its missing normals. The committed script makes the table, backdrop,
+and low-poly reference geometry repeatable.”
 
 ## 2:40–3:10 — Final scene
 
@@ -79,5 +78,6 @@ table demonstrate both normal styles in one scene.”
 **Screen:** terminal with `cargo test` and Clippy results already visible.
 
 **Say:** “All tests pass, including the real supplied OBJ counts, independent
-normal indices, generated normals, interpolation, and quad rejection. Clippy
-also passes with warnings treated as errors.”
+normal indices, generated normals, interpolation, bounding-box rejection, and
+quad rejection. Each image also reports its render time in hours, minutes, and
+seconds. Clippy passes with warnings treated as errors.”

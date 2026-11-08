@@ -3,6 +3,7 @@ use rust_learn::camera::Camera;
 use rust_learn::film::Film;
 use rust_learn::render::render;
 use rust_learn::scene::Scene;
+use std::time::{Duration, Instant};
 
 fn render_view(
     scene: &Scene,
@@ -13,11 +14,25 @@ fn render_view(
     height: u32,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let camera = Camera::new(eye, target, Vec3::Y, width as f32 / height as f32, 45.0);
+    let started = Instant::now();
     let film: Film = render(scene, &camera, width, height);
+    let render_time = started.elapsed();
     let path = std::env::current_dir()?.join(filename);
     film.save_png(&path)?;
-    println!("Image created at: {}", path.display());
+    println!(
+        "Image created at: {} (render time: {})",
+        path.display(),
+        format_duration(render_time)
+    );
     Ok(())
+}
+
+fn format_duration(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let hours = total_seconds / 3_600;
+    let minutes = (total_seconds % 3_600) / 60;
+    let seconds = duration.as_secs_f64() - (hours * 3_600 + minutes * 60) as f64;
+    format!("{hours:02}h {minutes:02}m {seconds:06.3}s")
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -69,4 +84,17 @@ fn render_vase_views() -> Result<(), Box<dyn std::error::Error>> {
         render_view(&scene, filename, eye, target, 640, 480)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn duration_is_formatted_as_hours_minutes_and_seconds() {
+        assert_eq!(
+            format_duration(Duration::from_millis(3_723_450)),
+            "01h 02m 03.450s"
+        );
+    }
 }

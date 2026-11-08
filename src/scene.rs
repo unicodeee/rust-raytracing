@@ -82,6 +82,7 @@ impl Scene {
         for vertex in &mut pyramid.vertices {
             *vertex = *vertex * 1.2 + Vec3::new(0.0, -0.9, 0.0);
         }
+        pyramid.update_bounds();
         let floor = Plane::new(
             Vec3::new(0.0, -0.91, 0.0),
             Vec3::Y,
@@ -99,12 +100,37 @@ impl Scene {
     }
 
     pub fn vase_scene() -> Self {
-        let vase = load_obj(
-            include_str!("../objects/vase_scene_vase.obj"),
+        let mut vase = load_obj(
+            include_str!("../objects/vase.obj"),
             [64, 174, 166, 255],
             Material::new(Vec3::splat(0.72), 0.45, 96.0, Vec3::ZERO, 0.0, 1.0),
         )
         .expect("bundled vase OBJ must be valid");
+        let minimum = vase
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
+                bounds.min(vertex)
+            });
+        let maximum = vase
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
+                bounds.max(vertex)
+            });
+        let center = (minimum + maximum) * 0.5;
+        let scale = 2.25 / (maximum.z - minimum.z);
+        for vertex in &mut vase.vertices {
+            *vertex = Vec3::new(
+                (vertex.x - center.x) * scale,
+                (vertex.z - minimum.z) * scale - 0.25,
+                -(vertex.y - center.y) * scale,
+            );
+        }
+        for normal in &mut vase.normals {
+            *normal = Vec3::new(normal.x, normal.z, -normal.y).normalize_or_zero();
+        }
+        vase.update_bounds();
         let table = load_obj(
             include_str!("../objects/vase_scene_table.obj"),
             [126, 79, 48, 255],
@@ -150,6 +176,7 @@ impl Scene {
         for vertex in &mut model.vertices {
             *vertex *= 1.35;
         }
+        model.update_bounds();
 
         Self::new(
             vec![Box::new(model)],
