@@ -19,9 +19,15 @@ pub struct Triangle {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TriangleHit {
     pub t: f32,
+    pub beta: f32,
+    pub gamma: f32,
+}
+
+impl TriangleHit {
     /// Weights for corners 0, 1, and 2. They always add up to one.
-    pub barycentric: [f32; 3],
-    pub normal: Vec3,
+    pub fn barycentric(self) -> [f32; 3] {
+        [1.0 - self.beta - self.gamma, self.beta, self.gamma]
+    }
 }
 
 impl Triangle {
@@ -42,7 +48,7 @@ impl Triangle {
         t_min: f32,
         t_max: f32,
     ) -> Option<TriangleHit> {
-        const PARALLEL_EPSILON: f32 = 1e-7;
+        const PARALLEL_EPSILON: f32 = 1e-8;
 
         let [a, b, c] = self.positions(mesh);
         let ab = b - a;
@@ -71,21 +77,7 @@ impl Triangle {
             return None;
         }
 
-        let barycentric = [1.0 - beta - gamma, beta, gamma];
-        let [na, nb, nc] = self.vertex_normals(mesh);
-        let geometric_normal = ab.cross(ac).normalize_or_zero();
-        if geometric_normal == Vec3::ZERO {
-            return None;
-        }
-        let normal = (na * barycentric[0] + nb * barycentric[1] + nc * barycentric[2])
-            .try_normalize()
-            .unwrap_or(geometric_normal);
-
-        Some(TriangleHit {
-            t,
-            barycentric,
-            normal,
-        })
+        Some(TriangleHit { t, beta, gamma })
     }
 }
 
@@ -152,6 +144,19 @@ impl PolyMesh {
         self.triangles
             .iter()
             .map(|&triangle| (triangle.positions(self), triangle.vertex_normals(self)))
+    }
+
+    pub fn face_normal(&self, triangle: usize) -> Vec3 {
+        let [a, b, c] = self.triangles[triangle].positions(self);
+        (b - a).cross(c - a).normalize_or_zero()
+    }
+
+    pub fn shading_normal(&self, triangle: usize, beta: f32, gamma: f32) -> Vec3 {
+        let [na, nb, nc] = self.triangles[triangle].vertex_normals(self);
+        let alpha = 1.0 - beta - gamma;
+        (alpha * na + beta * nb + gamma * nc)
+            .try_normalize()
+            .unwrap_or_else(|| self.face_normal(triangle))
     }
 
     /// Recomputes the bounding box after callers modify public vertex data.
@@ -226,12 +231,30 @@ struct ObjCorner {
     normal: Option<u32>,
 }
 
+pub const DEFAULT_CREASE_DEGREES: f32 = 35.0;
+
 /// Reads triangle positions and vertex normals from Wavefront OBJ text.
 ///
 /// Supported face corners are `v`, `v//vn`, and `v/vt/vn`; texture indices
 /// are ignored. Faces must already be triangles. When normals are absent, the
-/// loader computes smooth, area-weighted normals shared by position index.
+/// loader generates corner normals using a 35-degree crease threshold.
 pub fn load_obj(text: &str, color: [u8; 4], material: Material) -> Result<PolyMesh, ObjError> {
+    load_obj_with_crease_angle(text, color, material, DEFAULT_CREASE_DEGREES)
+}
+
+pub fn load_obj_with_crease_angle(
+    text: &str,
+    color: [u8; 4],
+    material: Material,
+    crease_degrees: f32,
+) -> Result<PolyMesh, ObjError> {
+    if !(0.0..=180.0).contains(&crease_degrees) {
+        return Err(ObjError::new(
+            0,
+            "crease angle must be between 0 and 180 degrees",
+        ));
+    }
+
     let mut vertices = Vec::new();
     let mut normals = Vec::new();
     let mut faces: Vec<[ObjCorner; 3]> = Vec::new();
@@ -272,23 +295,8 @@ pub fn load_obj(text: &str, color: [u8; 4], material: Material) -> Result<PolyMe
 
     validate_obj_indices(&faces, vertices.len(), normals.len())?;
 
-    let needs_generated_normals = faces.iter().flatten().any(|corner| corner.normal.is_none());
-    let generated_normal_start = normals.len() as u32;
-    if needs_generated_normals {
-        normals.extend(compute_smooth_normals(&vertices, &faces));
-    }
-
-    let triangles = faces
-        .into_iter()
-        .map(|face| Triangle {
-            vertices: face.map(|corner| corner.vertex),
-            normals: face.map(|corner| {
-                corner
-                    .normal
-                    .unwrap_or(generated_normal_start + corner.vertex)
-            }),
-        })
-        .collect();
+    let triangles =
+        build_triangles_with_crease_normals(&vertices, &mut normals, &faces, crease_degrees);
 
     Ok(PolyMesh::new(vertices, normals, triangles, color, material))
 }
@@ -351,16 +359,57 @@ fn validate_obj_indices(
     Ok(())
 }
 
-fn compute_smooth_normals(vertices: &[Vec3], faces: &[[ObjCorner; 3]]) -> Vec<Vec3> {
-    let mut normals = vec![Vec3::ZERO; vertices.len()];
-    for face in faces {
-        let [i, j, k] = face.map(|corner| corner.vertex as usize);
-        let face_normal = (vertices[j] - vertices[i]).cross(vertices[k] - vertices[i]);
-        normals[i] += face_normal;
-        normals[j] += face_normal;
-        normals[k] += face_normal;
+fn build_triangles_with_crease_normals(
+    vertices: &[Vec3],
+    normals: &mut Vec<Vec3>,
+    faces: &[[ObjCorner; 3]],
+    crease_degrees: f32,
+) -> Vec<Triangle> {
+    let cos_crease = crease_degrees.to_radians().cos();
+    let face_normals: Vec<_> = faces
+        .iter()
+        .map(|face| {
+            let [i, j, k] = face.map(|corner| corner.vertex as usize);
+            (vertices[j] - vertices[i])
+                .cross(vertices[k] - vertices[i])
+                .normalize_or_zero()
+        })
+        .collect();
+
+    let mut around = vec![Vec::new(); vertices.len()];
+    for (face_index, face) in faces.iter().enumerate() {
+        for corner in face {
+            around[corner.vertex as usize].push(face_index);
+        }
     }
-    normals.into_iter().map(Vec3::normalize_or_zero).collect()
+
+    faces
+        .iter()
+        .enumerate()
+        .map(|(face_index, face)| {
+            let mut normal_indices = [0; 3];
+            for (corner_index, corner) in face.iter().enumerate() {
+                normal_indices[corner_index] = if let Some(normal) = corner.normal {
+                    normal
+                } else {
+                    let mut normal = Vec3::ZERO;
+                    for &adjacent in &around[corner.vertex as usize] {
+                        if face_normals[adjacent].dot(face_normals[face_index]) >= cos_crease {
+                            normal += face_normals[adjacent];
+                        }
+                    }
+                    let normal = normal.try_normalize().unwrap_or(face_normals[face_index]);
+                    let index = normals.len() as u32;
+                    normals.push(normal);
+                    index
+                };
+            }
+            Triangle {
+                vertices: face.map(|corner| corner.vertex),
+                normals: normal_indices,
+            }
+        })
+        .collect()
 }
 
 impl Shape for PolyMesh {
@@ -375,22 +424,26 @@ impl Shape for PolyMesh {
         }
 
         let mut closest_t = t_max;
-        let mut closest = None;
+        let mut closest: Option<(usize, TriangleHit)> = None;
 
-        for &triangle in &self.triangles {
+        for (triangle_index, &triangle) in self.triangles.iter().enumerate() {
             if let Some(hit) = triangle.hit(self, origin, direction, t_min, closest_t) {
                 closest_t = hit.t;
-                closest = Some(Hit::new(
-                    hit.t,
-                    origin + hit.t * direction,
-                    hit.normal,
-                    self.color,
-                    Rc::clone(&self.material),
-                ));
+                closest = Some((triangle_index, hit));
             }
         }
 
-        closest
+        closest.map(|(triangle, hit)| {
+            Hit::new(
+                hit.t,
+                origin + hit.t * direction,
+                self.shading_normal(triangle, hit.beta, hit.gamma),
+                self.face_normal(triangle),
+                self.color,
+                Rc::clone(&self.material),
+            )
+            .with_triangle(triangle, hit.beta, hit.gamma)
+        })
     }
 }
 
@@ -437,8 +490,8 @@ mod tests {
             .unwrap();
 
         assert!((hit.t - 2.0).abs() < 1e-6);
-        assert!((hit.barycentric.iter().sum::<f32>() - 1.0).abs() < 1e-6);
-        assert!(hit.normal.is_normalized());
+        assert!((hit.barycentric().iter().sum::<f32>() - 1.0).abs() < 1e-6);
+        assert!(mesh.shading_normal(0, hit.beta, hit.gamma).is_normalized());
     }
 
     #[test]
@@ -450,6 +503,10 @@ mod tests {
 
         assert_eq!(hit.p, Vec3::ZERO);
         assert_eq!(hit.n, Vec3::Z);
+        assert_eq!(hit.ng, Vec3::Z);
+        assert_eq!(hit.triangle, Some(0));
+        assert!((hit.beta - 0.25).abs() < 1e-6);
+        assert!((hit.gamma - 0.5).abs() < 1e-6);
     }
 
     #[test]
@@ -509,6 +566,30 @@ f 1//2 4//2 2//2
     }
 
     #[test]
+    fn obj_loader_preserves_a_hard_edge_at_the_default_crease_angle() {
+        let obj = "\
+v 0 0 0
+v 1 0 0
+v 0 1 0
+v 0 0 1
+f 1 2 3
+f 1 4 2
+";
+        let hard = load_obj(obj, [255; 4], matte()).unwrap();
+        let smooth = load_obj_with_crease_angle(obj, [255; 4], matte(), 180.0).unwrap();
+
+        let hard_first = hard.normals[hard.triangles[0].normals[0] as usize];
+        let hard_second = hard.normals[hard.triangles[1].normals[0] as usize];
+        assert_eq!(hard_first, Vec3::Z);
+        assert_eq!(hard_second, Vec3::Y);
+
+        let smooth_first = smooth.normals[smooth.triangles[0].normals[0] as usize];
+        let smooth_second = smooth.normals[smooth.triangles[1].normals[0] as usize];
+        assert!(smooth_first.abs_diff_eq(smooth_second, 1e-6));
+        assert!(smooth_first.abs_diff_eq((Vec3::Y + Vec3::Z).normalize(), 1e-6));
+    }
+
+    #[test]
     fn obj_loader_rejects_non_triangle_faces() {
         let error = load_obj(
             "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4",
@@ -535,6 +616,6 @@ f 1//2 4//2 2//2
             (vase.vertices.len(), vase.triangles.len()),
             (36_944, 73_884)
         );
-        assert_eq!(vase.normals.len(), vase.vertices.len());
+        assert_eq!(vase.normals.len(), vase.triangles.len() * 3);
     }
 }

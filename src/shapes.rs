@@ -104,6 +104,7 @@ impl Shape for Plane {
             t,
             p,
             self.up,
+            self.up,
             self.color,
             Rc::clone(&self.material),
         ))
@@ -119,23 +120,44 @@ pub struct Sphere {
 }
 
 pub struct Hit {
-    pub t: f32,  // distance
-    pub p: Vec3, // hit at this point
-    pub n: Vec3, //
+    pub t: f32,   // distance
+    pub p: Vec3,  // hit point
+    pub n: Vec3,  // shading normal
+    pub ng: Vec3, // geometric normal
+    pub triangle: Option<usize>,
+    pub beta: f32,
+    pub gamma: f32,
     pub color: [u8; 4],
     pub material: Rc<Material>,
 }
 
 impl Hit {
-    pub(crate) fn new(t: f32, p: Vec3, n: Vec3, color: [u8; 4], material: Rc<Material>) -> Self {
+    pub(crate) fn new(
+        t: f32,
+        p: Vec3,
+        n: Vec3,
+        ng: Vec3,
+        color: [u8; 4],
+        material: Rc<Material>,
+    ) -> Self {
         Self {
             t,
             p,
             n: n.normalize(),
+            ng: ng.normalize(),
+            triangle: None,
+            beta: 0.0,
+            gamma: 0.0,
             color,
-            // to do: impl for each shape
             material,
         }
+    }
+
+    pub(crate) fn with_triangle(mut self, triangle: usize, beta: f32, gamma: f32) -> Self {
+        self.triangle = Some(triangle);
+        self.beta = beta;
+        self.gamma = gamma;
+        self
     }
 }
 
@@ -177,10 +199,12 @@ impl Shape for Sphere {
         }
 
         let p = e + t * d;
+        let normal = (p - self.origin) / self.radius;
         Some(Hit::new(
             t,
             p,
-            (p - self.origin) / self.radius,
+            normal,
+            normal,
             self.color,
             Rc::clone(&self.material),
         ))

@@ -216,11 +216,16 @@ impl Scene {
             return local_color;
         }
 
-        let entering = ray.direction().dot(hit.n) < 0.0;
-        let face_normal = if entering { hit.n } else { -hit.n };
+        let entering = ray.direction().dot(hit.ng) < 0.0;
+        let shading_normal = if ray.direction().dot(hit.n) < 0.0 {
+            hit.n
+        } else {
+            -hit.n
+        };
+        let geometric_normal = if entering { hit.ng } else { -hit.ng };
 
-        let reflected_direction = ray.direction().reflect(face_normal).normalize();
-        let reflected_origin = hit.p + RAY_EPSILON * face_normal;
+        let reflected_direction = ray.direction().reflect(shading_normal).normalize();
+        let reflected_origin = hit.p + RAY_EPSILON * geometric_normal;
         let reflected_ray = Ray::new(reflected_origin, reflected_direction);
         let reflected_color = self.trace_color(&reflected_ray, depth - 1);
 
@@ -231,18 +236,18 @@ impl Scene {
             let ior = hit.material.ior;
             let eta = if entering { 1.0 / ior } else { ior };
             let direction = ray.direction().normalize();
-            let refracted_direction = direction.refract(face_normal, eta);
+            let refracted_direction = direction.refract(shading_normal, eta);
 
             if refracted_direction.length_squared() < RAY_EPSILON {
                 // Total internal reflection.
                 fresnel = 1.0;
             } else {
                 fresnel = schlick(
-                    fresnel_cos(direction, refracted_direction, face_normal, entering),
+                    fresnel_cos(direction, refracted_direction, shading_normal, entering),
                     ior,
                 );
 
-                let refracted_origin = hit.p - RAY_EPSILON * face_normal;
+                let refracted_origin = hit.p - RAY_EPSILON * geometric_normal;
                 let refracted_ray = Ray::new(refracted_origin, refracted_direction.normalize());
 
                 refracted_color = self.trace_color(&refracted_ray, depth - 1);
@@ -272,18 +277,34 @@ impl Scene {
             let to_light = light.origin - hit.p;
             let t_light = to_light.length();
             let light_direction = to_light / t_light;
-            let shadow_ray = Ray::new(hit.p + RAY_EPSILON * hit.n, light_direction);
-            let blocked = self.objects.iter().any(|object| {
-                object
-                    .hit_with_ray(&shadow_ray, RAY_EPSILON, t_light - RAY_EPSILON)
-                    .is_some()
-            });
+            let light_power = hit.n.dot(light_direction).clamp(0.0, 1.0);
+            if light_power == 0.0 {
+                continue;
+            }
+
+            // The interpolated shading normal can face the light while the
+            // actual flat triangle faces away. Trust the shading normal in
+            // that disagreement region to avoid a faceted shadow terminator.
+            let geometric_normal = if hit.ng.dot(hit.n) >= 0.0 {
+                hit.ng
+            } else {
+                -hit.ng
+            };
+            let blocked = if geometric_normal.dot(light_direction) < 0.0 {
+                false
+            } else {
+                let shadow_ray = Ray::new(hit.p + RAY_EPSILON * geometric_normal, light_direction);
+                self.objects.iter().any(|object| {
+                    object
+                        .hit_with_ray(&shadow_ray, RAY_EPSILON, t_light - RAY_EPSILON)
+                        .is_some()
+                })
+            };
 
             if blocked {
                 continue;
             }
 
-            let light_power = hit.n.dot(light_direction).clamp(0.0, 1.0);
             let diffuse = surface_color
                 * light_power
                 * hit.material.diffuse_coefficient
