@@ -176,7 +176,7 @@ computer):
 | --- | ---: | ---: |
 | Hard pyramid | 640 × 480 | `00h 00m 00.043s` |
 | Smooth pyramid | 640 × 480 | `00h 00m 00.072s` |
-| Capuchino OBJ | 640 × 480 | `00h 00m 46.719s` |
+| Capuchino OBJ | 640 × 480 | `00h 00m 44.356s` |
 | Vase front | 640 × 480 | `00h 00m 46.292s` |
 | Vase left | 640 × 480 | `00h 00m 37.576s` |
 | Vase right | 640 × 480 | `00h 00m 44.741s` |

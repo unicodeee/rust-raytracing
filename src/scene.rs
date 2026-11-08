@@ -145,10 +145,13 @@ impl Scene {
         let scale = STUDIO_SUBJECT_HEIGHT / (maximum.y - minimum.y);
         for vertex in &mut model.vertices {
             *vertex = Vec3::new(
-                (vertex.x - center.x) * scale,
+                -(vertex.x - center.x) * scale,
                 (vertex.y - minimum.y) * scale + TABLE_TOP_Y,
-                (vertex.z - center.z) * scale,
+                -(vertex.z - center.z) * scale,
             );
+        }
+        for normal in &mut model.normals {
+            *normal = Vec3::new(-normal.x, normal.y, -normal.z);
         }
         model.update_bounds();
 
