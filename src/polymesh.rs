@@ -6,6 +6,9 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
+const MAX_LEAF_TRIANGLES: usize = 8;
+const MAX_BVH_DEPTH: usize = 32;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Aabb {
     min: Vec3,
@@ -13,6 +16,13 @@ struct Aabb {
 }
 
 impl Aabb {
+    fn empty() -> Self {
+        Self {
+            min: Vec3::splat(f32::INFINITY),
+            max: Vec3::splat(f32::NEG_INFINITY),
+        }
+    }
+
     fn from_vertices(vertices: &[Vec3]) -> Self {
         let min = vertices
             .iter()
@@ -27,13 +37,31 @@ impl Aabb {
         Self { min, max }
     }
 
-    fn hit(self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
+    fn from_triangle(vertices: &[Vec3], triangle: Triangle) -> Self {
+        let [a, b, c] = triangle.vertices.map(|index| vertices[index as usize]);
+        Self {
+            min: a.min(b).min(c),
+            max: a.max(b).max(c),
+        }
+    }
+
+    fn include(mut self, other: Self) -> Self {
+        self.min = self.min.min(other.min);
+        self.max = self.max.max(other.max);
+        self
+    }
+
+    fn extent(self) -> Vec3 {
+        self.max - self.min
+    }
+
+    fn entry_distance(self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> Option<f32> {
         let mut enter = t_min;
         let mut exit = t_max;
         for axis in 0..3 {
             if direction[axis].abs() < 1e-8 {
                 if origin[axis] < self.min[axis] || origin[axis] > self.max[axis] {
-                    return false;
+                    return None;
                 }
                 continue;
             }
@@ -47,10 +75,178 @@ impl Aabb {
             enter = enter.max(near);
             exit = exit.min(far);
             if exit < enter {
-                return false;
+                return None;
             }
         }
-        true
+        Some(enter)
+    }
+
+    fn hit(self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
+        self.entry_distance(origin, direction, t_min, t_max)
+            .is_some()
+    }
+}
+
+enum BvhNode {
+    Branch {
+        bounds: Aabb,
+        left: Box<BvhNode>,
+        right: Box<BvhNode>,
+    },
+    Leaf {
+        bounds: Aabb,
+        triangles: Box<[usize]>,
+    },
+}
+
+impl BvhNode {
+    fn build(vertices: &[Vec3], triangles: &[Triangle]) -> Self {
+        let indices = (0..triangles.len()).collect();
+        Self::build_recursive(vertices, triangles, indices, 0)
+    }
+
+    fn build_recursive(
+        vertices: &[Vec3],
+        triangles: &[Triangle],
+        mut indices: Vec<usize>,
+        depth: usize,
+    ) -> Self {
+        let bounds = indices.iter().fold(Aabb::empty(), |bounds, &index| {
+            bounds.include(Aabb::from_triangle(vertices, triangles[index]))
+        });
+
+        if indices.len() <= MAX_LEAF_TRIANGLES || depth >= MAX_BVH_DEPTH {
+            return Self::Leaf {
+                bounds,
+                triangles: indices.into_boxed_slice(),
+            };
+        }
+
+        let centroid_bounds = indices.iter().fold(Aabb::empty(), |bounds, &index| {
+            let centroid = triangles[index]
+                .vertices
+                .map(|vertex| vertices[vertex as usize])
+                .into_iter()
+                .sum::<Vec3>()
+                / 3.0;
+            bounds.include(Aabb {
+                min: centroid,
+                max: centroid,
+            })
+        });
+        let extent = centroid_bounds.extent();
+        let axis = if extent.x >= extent.y && extent.x >= extent.z {
+            0
+        } else if extent.y >= extent.z {
+            1
+        } else {
+            2
+        };
+
+        if extent[axis] <= f32::EPSILON {
+            return Self::Leaf {
+                bounds,
+                triangles: indices.into_boxed_slice(),
+            };
+        }
+
+        indices.sort_unstable_by(|&left, &right| {
+            let left_centroid = triangles[left]
+                .vertices
+                .map(|vertex| vertices[vertex as usize][axis])
+                .into_iter()
+                .sum::<f32>()
+                / 3.0;
+            let right_centroid = triangles[right]
+                .vertices
+                .map(|vertex| vertices[vertex as usize][axis])
+                .into_iter()
+                .sum::<f32>()
+                / 3.0;
+            left_centroid.total_cmp(&right_centroid)
+        });
+
+        let right_indices = indices.split_off(indices.len() / 2);
+        let left = Box::new(Self::build_recursive(
+            vertices,
+            triangles,
+            indices,
+            depth + 1,
+        ));
+        let right = Box::new(Self::build_recursive(
+            vertices,
+            triangles,
+            right_indices,
+            depth + 1,
+        ));
+        Self::Branch {
+            bounds,
+            left,
+            right,
+        }
+    }
+
+    fn bounds(&self) -> Aabb {
+        match self {
+            Self::Branch { bounds, .. } | Self::Leaf { bounds, .. } => *bounds,
+        }
+    }
+
+    fn closest_hit(
+        &self,
+        mesh: &PolyMesh,
+        origin: Vec3,
+        direction: Vec3,
+        t_min: f32,
+        closest_t: &mut f32,
+        closest: &mut Option<(usize, TriangleHit)>,
+    ) {
+        if self
+            .bounds()
+            .entry_distance(origin, direction, t_min, *closest_t)
+            .is_none()
+        {
+            return;
+        }
+
+        match self {
+            Self::Leaf { triangles, .. } => {
+                for &triangle_index in triangles {
+                    if let Some(hit) = mesh.triangles[triangle_index]
+                        .hit(mesh, origin, direction, t_min, *closest_t)
+                    {
+                        *closest_t = hit.t;
+                        *closest = Some((triangle_index, hit));
+                    }
+                }
+            }
+            Self::Branch { left, right, .. } => {
+                let left_entry = left
+                    .bounds()
+                    .entry_distance(origin, direction, t_min, *closest_t);
+                let right_entry = right
+                    .bounds()
+                    .entry_distance(origin, direction, t_min, *closest_t);
+
+                match (left_entry, right_entry) {
+                    (Some(left_t), Some(right_t)) if right_t < left_t => {
+                        right.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                        left.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                    }
+                    (Some(_), Some(_)) => {
+                        left.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                        right.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                    }
+                    (Some(_), None) => {
+                        left.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                    }
+                    (None, Some(_)) => {
+                        right.closest_hit(mesh, origin, direction, t_min, closest_t, closest);
+                    }
+                    (None, None) => {}
+                }
+            }
+        }
     }
 }
 
@@ -138,6 +334,7 @@ pub struct PolyMesh {
     pub material: Rc<Material>,
     pub transform: Transform,
     bounds: Aabb,
+    bvh: BvhNode,
 }
 
 impl PolyMesh {
@@ -164,6 +361,7 @@ impl PolyMesh {
         );
 
         let bounds = Aabb::from_vertices(&vertices);
+        let bvh = BvhNode::build(&vertices, &triangles);
 
         Self {
             vertices,
@@ -173,6 +371,7 @@ impl PolyMesh {
             material: Rc::new(material),
             transform: Transform::IDENTITY,
             bounds,
+            bvh,
         }
     }
 
@@ -199,6 +398,7 @@ impl PolyMesh {
     /// Recomputes the bounding box after callers modify public vertex data.
     pub fn update_bounds(&mut self) {
         self.bounds = Aabb::from_vertices(&self.vertices);
+        self.bvh = BvhNode::build(&self.vertices, &self.triangles);
     }
 
     fn bounds_hit(&self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
@@ -421,7 +621,7 @@ impl Shape for PolyMesh {
         &self.transform
     }
 
-    /// Tests every triangle linearly and returns the closest hit.
+    /// Traverses the mesh hierarchy and returns the closest triangle hit.
     fn hit(&self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> Option<Hit> {
         if !self.bounds_hit(origin, direction, t_min, t_max) {
             return None;
@@ -430,12 +630,8 @@ impl Shape for PolyMesh {
         let mut closest_t = t_max;
         let mut closest: Option<(usize, TriangleHit)> = None;
 
-        for (triangle_index, &triangle) in self.triangles.iter().enumerate() {
-            if let Some(hit) = triangle.hit(self, origin, direction, t_min, closest_t) {
-                closest_t = hit.t;
-                closest = Some((triangle_index, hit));
-            }
-        }
+        self.bvh
+            .closest_hit(self, origin, direction, t_min, &mut closest_t, &mut closest);
 
         closest.map(|(triangle, hit)| {
             Hit::new(
@@ -474,6 +670,19 @@ mod tests {
             [255, 0, 0, 255],
             matte(),
         )
+    }
+
+    fn collect_bvh_triangles(node: &BvhNode, indices: &mut Vec<usize>) {
+        match node {
+            BvhNode::Branch { left, right, .. } => {
+                collect_bvh_triangles(left, indices);
+                collect_bvh_triangles(right, indices);
+            }
+            BvhNode::Leaf { triangles, .. } => {
+                assert!(triangles.len() <= MAX_LEAF_TRIANGLES);
+                indices.extend(triangles.iter().copied());
+            }
+        }
     }
 
     #[test]
@@ -518,6 +727,36 @@ mod tests {
         let mesh = triangle_mesh(vec![Vec3::Z], [0, 0, 0]);
 
         assert!(!mesh.bounds_hit(Vec3::new(3.0, 0.0, -2.0), Vec3::Z, 0.001, 10.0));
+    }
+
+    #[test]
+    fn bvh_partitions_triangles_and_finds_the_target_leaf() {
+        let mut vertices = Vec::new();
+        let mut triangles = Vec::new();
+        for index in 0..32 {
+            let x = index as f32 * 2.0;
+            let first_vertex = vertices.len() as u32;
+            vertices.extend([
+                Vec3::new(x - 0.4, -0.4, 0.0),
+                Vec3::new(x + 0.4, -0.4, 0.0),
+                Vec3::new(x, 0.4, 0.0),
+            ]);
+            triangles.push(Triangle {
+                vertices: [first_vertex, first_vertex + 1, first_vertex + 2],
+                normals: [0, 0, 0],
+            });
+        }
+        let mesh = PolyMesh::new(vertices, vec![Vec3::Z], triangles, [255; 4], matte());
+
+        let mut partitioned = Vec::new();
+        collect_bvh_triangles(&mesh.bvh, &mut partitioned);
+        partitioned.sort_unstable();
+        assert_eq!(partitioned, (0..32).collect::<Vec<_>>());
+
+        let hit = mesh
+            .hit(Vec3::new(20.0, 0.0, -1.0), Vec3::Z, 0.001, 10.0)
+            .unwrap();
+        assert_eq!(hit.triangle, Some(10));
     }
 
     #[test]
