@@ -6,6 +6,54 @@ use std::error::Error;
 use std::fmt;
 use std::rc::Rc;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Aabb {
+    min: Vec3,
+    max: Vec3,
+}
+
+impl Aabb {
+    fn from_vertices(vertices: &[Vec3]) -> Self {
+        let min = vertices
+            .iter()
+            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
+                bounds.min(vertex)
+            });
+        let max = vertices
+            .iter()
+            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
+                bounds.max(vertex)
+            });
+        Self { min, max }
+    }
+
+    fn hit(self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
+        let mut enter = t_min;
+        let mut exit = t_max;
+        for axis in 0..3 {
+            if direction[axis].abs() < 1e-8 {
+                if origin[axis] < self.min[axis] || origin[axis] > self.max[axis] {
+                    return false;
+                }
+                continue;
+            }
+
+            let inverse_direction = direction[axis].recip();
+            let mut near = (self.min[axis] - origin[axis]) * inverse_direction;
+            let mut far = (self.max[axis] - origin[axis]) * inverse_direction;
+            if near > far {
+                std::mem::swap(&mut near, &mut far);
+            }
+            enter = enter.max(near);
+            exit = exit.min(far);
+            if exit < enter {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// Three position indices and three independently indexed vertex normals.
 ///
 /// Keeping the two index arrays separate lets one position use different
@@ -89,8 +137,7 @@ pub struct PolyMesh {
     pub color: [u8; 4],
     pub material: Rc<Material>,
     pub transform: Transform,
-    bounds_min: Vec3,
-    bounds_max: Vec3,
+    bounds: Aabb,
 }
 
 impl PolyMesh {
@@ -116,16 +163,7 @@ impl PolyMesh {
             "triangle normal index is out of bounds"
         );
 
-        let bounds_min = vertices
-            .iter()
-            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
-                bounds.min(vertex)
-            });
-        let bounds_max = vertices
-            .iter()
-            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
-                bounds.max(vertex)
-            });
+        let bounds = Aabb::from_vertices(&vertices);
 
         Self {
             vertices,
@@ -134,8 +172,7 @@ impl PolyMesh {
             color,
             material: Rc::new(material),
             transform: Transform::IDENTITY,
-            bounds_min,
-            bounds_max,
+            bounds,
         }
     }
 
@@ -161,44 +198,11 @@ impl PolyMesh {
 
     /// Recomputes the bounding box after callers modify public vertex data.
     pub fn update_bounds(&mut self) {
-        self.bounds_min = self
-            .vertices
-            .iter()
-            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
-                bounds.min(vertex)
-            });
-        self.bounds_max = self
-            .vertices
-            .iter()
-            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
-                bounds.max(vertex)
-            });
+        self.bounds = Aabb::from_vertices(&self.vertices);
     }
 
     fn bounds_hit(&self, origin: Vec3, direction: Vec3, t_min: f32, t_max: f32) -> bool {
-        let mut enter = t_min;
-        let mut exit = t_max;
-        for axis in 0..3 {
-            if direction[axis].abs() < 1e-8 {
-                if origin[axis] < self.bounds_min[axis] || origin[axis] > self.bounds_max[axis] {
-                    return false;
-                }
-                continue;
-            }
-
-            let inverse_direction = direction[axis].recip();
-            let mut near = (self.bounds_min[axis] - origin[axis]) * inverse_direction;
-            let mut far = (self.bounds_max[axis] - origin[axis]) * inverse_direction;
-            if near > far {
-                std::mem::swap(&mut near, &mut far);
-            }
-            enter = enter.max(near);
-            exit = exit.min(far);
-            if exit < enter {
-                return false;
-            }
-        }
-        true
+        self.bounds.hit(origin, direction, t_min, t_max)
     }
 }
 
