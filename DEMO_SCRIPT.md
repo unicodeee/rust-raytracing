@@ -58,12 +58,12 @@ at preview resolution because this assignment intentionally uses linear search.�
 ## 2:05–2:40 — Scene construction
 
 **Screen:** README’s “How the vase scene was made” section, then
-`tools/generate_vase_scene.py`.
+`Scene::vase_scene` in `src/scene.rs`.
 
 **Say:** “The detailed vase is the updated Tinkercad export: 36,944 vertices
 and 73,884 triangles. The renderer converts its Z-up coordinates to Y-up and
-generates its missing normals. The committed script makes the table, backdrop,
-and low-poly reference geometry repeatable.”
+generates its missing normals. The table is loaded from its committed OBJ,
+while the floor and wall are planes created by the scene.”
 
 ## 2:40–3:10 — Final scene
 

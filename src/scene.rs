@@ -1,11 +1,20 @@
 use crate::light::Light;
-use crate::polymesh::load_obj;
+use crate::polymesh::{PolyMesh, load_obj};
 use crate::ray::Ray;
 use crate::shapes::{Hit, Material, Plane, Shape, Sphere};
 use glam::Vec3;
 
 const RAY_EPSILON: f32 = 0.001;
 const MAX_REFLECTION_DEPTH: u32 = 7;
+
+fn load_table_mesh() -> PolyMesh {
+    load_obj(
+        include_str!("../objects/vase_scene_table.obj"),
+        [126, 79, 48, 255],
+        Material::new(Vec3::splat(0.65), 0.12, 24.0, Vec3::ZERO, 0.0, 1.0),
+    )
+    .expect("bundled table OBJ must be valid")
+}
 
 pub struct Scene {
     pub objects: Vec<Box<dyn Shape>>,
@@ -131,12 +140,7 @@ impl Scene {
             *normal = Vec3::new(normal.x, normal.z, -normal.y).normalize_or_zero();
         }
         vase.update_bounds();
-        let table = load_obj(
-            include_str!("../objects/vase_scene_table.obj"),
-            [126, 79, 48, 255],
-            Material::new(Vec3::splat(0.65), 0.12, 24.0, Vec3::ZERO, 0.0, 1.0),
-        )
-        .expect("bundled table OBJ must be valid");
+        let table = load_table_mesh();
         let floor = Plane::with_color(
             Vec3::new(0.0, -2.0, 0.0),
             Vec3::Y,

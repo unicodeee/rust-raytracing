@@ -91,9 +91,10 @@ without modifying the OBJ file.
 
 ## How the vase scene was made
 
-The scene contains the detailed Tinkercad vase, a table made from five boxes, a
-floor/wall studio backdrop, and three lights. The table and reference scene
-meshes are in `objects/vase_scene_*.obj`.
+The scene contains the detailed Tinkercad vase, the committed
+`objects/vase_scene_table.obj` mesh, a floor and wall built from planes, and
+three lights. The table is loaded directly; no geometry generator runs while
+rendering.
 
 ### Blender workflow
 
@@ -108,10 +109,8 @@ meshes are in `objects/vase_scene_*.obj`.
 7. Export the vase, table, and backdrop as Wavefront OBJ with **Selection Only**,
    **Triangulate Faces**, **Write Normals**, and **Keep Vertex Order** enabled.
 
-Blender is not installed in the automated development environment. The vase is
-therefore loaded from the Tinkercad export, while
-[`tools/generate_vase_scene.py`](tools/generate_vase_scene.py) reproducibly
-creates the table, backdrop, and a low-poly reference vase.
+Blender is not installed in the automated development environment. The vase
+and table are therefore loaded from their committed OBJ files.
 
 ### Three camera angles
 
