@@ -165,16 +165,16 @@ impl Scene {
                 bounds.max(vertex)
             });
         let center = (minimum + maximum) * 0.5;
-        let scale = 1.8 / (maximum.z - minimum.z);
+        let scale = 1.8 / (maximum.y - minimum.y);
         for vertex in &mut suzanne.vertices {
             *vertex = Vec3::new(
                 (vertex.x - center.x) * scale,
-                (vertex.z - minimum.z) * scale + TABLE_TOP_Y,
-                (vertex.y - center.y) * scale,
+                (vertex.y - minimum.y) * scale + TABLE_TOP_Y,
+                -(vertex.z - center.z) * scale,
             );
         }
         for normal in &mut suzanne.normals {
-            *normal = Vec3::new(normal.x, normal.z, normal.y).normalize_or_zero();
+            *normal = Vec3::new(normal.x, normal.y, -normal.z).normalize_or_zero();
         }
         suzanne.update_bounds();
 

@@ -90,10 +90,14 @@ smooth normals. The scene converts Tinkercad's Z-up coordinates to the
 renderer’s Y-up coordinates, centers the vase, and scales it onto the tabletop
 without modifying the OBJ file.
 
-The bundled Suzanne model is converted from Blender's Z-up coordinates, placed
-on the same table, and rendered with the same three-light studio:
+The bundled Suzanne model is reoriented from its exported coordinates, placed
+upright on the same table, and rendered with the same three-light studio:
 
 ![Suzanne studio render](docs/renders/suzanne_obj.png)
+
+![Suzanne left view](docs/renders/suzanne_left.png)
+
+![Suzanne right view](docs/renders/suzanne_right.png)
 
 ## How the vase scene was made
 
@@ -145,7 +149,7 @@ cargo run --release -- pyramid-smooth
 # Full 50,000-triangle supplied OBJ at preview resolution
 cargo run --release -- capuchino
 
-# Suzanne in the vase studio at 1280 x 960
+# Three Suzanne views in the vase studio at 1280 x 960
 cargo run --release -- suzanne
 
 # Tests and static checks

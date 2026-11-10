@@ -63,14 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             192,
             192,
         )?,
-        "suzanne" => render_view(
-            &Scene::suzanne_scene(),
-            "docs/renders/suzanne_obj.png",
-            Vec3::new(0.3, 2.0, -6.4),
-            Vec3::new(0.0, 0.6, 0.0),
-            1280,
-            960,
-        )?,
+        "suzanne" => render_suzanne_views()?,
         _ => {
             return Err(format!(
                 "unknown scene `{mode}`; use vase, pyramid, pyramid-smooth, capuchino, or suzanne"
@@ -90,6 +83,19 @@ fn render_vase_views() -> Result<(), Box<dyn std::error::Error>> {
         ("docs/renders/vase_right.png", Vec3::new(5.5, 1.8, -2.4)),
     ] {
         render_view(&scene, filename, eye, target, 640, 480)?;
+    }
+    Ok(())
+}
+
+fn render_suzanne_views() -> Result<(), Box<dyn std::error::Error>> {
+    let scene = Scene::suzanne_scene();
+    let target = Vec3::new(0.0, 0.65, 0.0);
+    for (filename, eye) in [
+        ("docs/renders/suzanne_obj.png", Vec3::new(0.3, 1.8, -6.4)),
+        ("docs/renders/suzanne_left.png", Vec3::new(-4.5, 1.8, -5.0)),
+        ("docs/renders/suzanne_right.png", Vec3::new(4.5, 1.8, -5.0)),
+    ] {
+        render_view(&scene, filename, eye, target, 1280, 960)?;
     }
     Ok(())
 }
