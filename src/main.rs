@@ -63,9 +63,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             192,
             192,
         )?,
+        "suzanne" => render_view(
+            &Scene::suzanne_scene(),
+            "docs/renders/suzanne_obj.png",
+            Vec3::new(0.3, 2.0, -6.4),
+            Vec3::new(0.0, 0.6, 0.0),
+            1280,
+            960,
+        )?,
         _ => {
             return Err(format!(
-                "unknown scene `{mode}`; use vase, pyramid, pyramid-smooth, or capuchino"
+                "unknown scene `{mode}`; use vase, pyramid, pyramid-smooth, capuchino, or suzanne"
             )
             .into());
         }

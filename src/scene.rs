@@ -6,6 +6,7 @@ use glam::Vec3;
 
 const RAY_EPSILON: f32 = 0.001;
 const MAX_REFLECTION_DEPTH: u32 = 7;
+const TABLE_TOP_Y: f32 = -0.25;
 
 fn load_table_mesh() -> PolyMesh {
     load_obj(
@@ -132,7 +133,7 @@ impl Scene {
         for vertex in &mut vase.vertices {
             *vertex = Vec3::new(
                 (vertex.x - center.x) * scale,
-                (vertex.z - minimum.z) * scale - 0.25,
+                (vertex.z - minimum.z) * scale + TABLE_TOP_Y,
                 -(vertex.y - center.y) * scale,
             );
         }
@@ -140,6 +141,47 @@ impl Scene {
             *normal = Vec3::new(normal.x, normal.z, -normal.y).normalize_or_zero();
         }
         vase.update_bounds();
+
+        Self::table_studio(vec![Box::new(vase)])
+    }
+
+    pub fn suzanne_scene() -> Self {
+        let mut suzanne = load_obj(
+            include_str!("../objects/suzanne.obj"),
+            [205, 112, 82, 255],
+            Material::new(Vec3::splat(0.75), 0.35, 64.0, Vec3::ZERO, 0.0, 1.0),
+        )
+        .expect("bundled Suzanne OBJ must be valid");
+        let minimum = suzanne
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::INFINITY), |bounds, &vertex| {
+                bounds.min(vertex)
+            });
+        let maximum = suzanne
+            .vertices
+            .iter()
+            .fold(Vec3::splat(f32::NEG_INFINITY), |bounds, &vertex| {
+                bounds.max(vertex)
+            });
+        let center = (minimum + maximum) * 0.5;
+        let scale = 1.8 / (maximum.z - minimum.z);
+        for vertex in &mut suzanne.vertices {
+            *vertex = Vec3::new(
+                (vertex.x - center.x) * scale,
+                (vertex.z - minimum.z) * scale + TABLE_TOP_Y,
+                (vertex.y - center.y) * scale,
+            );
+        }
+        for normal in &mut suzanne.normals {
+            *normal = Vec3::new(normal.x, normal.z, normal.y).normalize_or_zero();
+        }
+        suzanne.update_bounds();
+
+        Self::table_studio(vec![Box::new(suzanne)])
+    }
+
+    fn table_studio(mut subjects: Vec<Box<dyn Shape>>) -> Self {
         let table = load_table_mesh();
         let floor = Plane::with_color(
             Vec3::new(0.0, -2.0, 0.0),
@@ -154,13 +196,14 @@ impl Scene {
             Material::new(Vec3::splat(0.55), 0.05, 12.0, Vec3::ZERO, 0.0, 1.0),
         );
 
+        subjects.extend([
+            Box::new(table) as Box<dyn Shape>,
+            Box::new(floor),
+            Box::new(wall),
+        ]);
+
         Self::new(
-            vec![
-                Box::new(vase),
-                Box::new(table),
-                Box::new(floor),
-                Box::new(wall),
-            ],
+            subjects,
             vec![
                 Light::new(Vec3::new(-3.5, 4.5, -4.0), Vec3::new(1.0, 0.82, 0.68)),
                 Light::new(Vec3::new(4.0, 2.5, -2.0), Vec3::new(0.35, 0.5, 0.8)),
