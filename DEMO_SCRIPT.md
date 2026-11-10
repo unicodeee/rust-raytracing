@@ -8,7 +8,7 @@ rendered images ready before recording so no time is lost waiting for builds.
 **Screen:** repository tree with `src/polymesh.rs`, `objects/`, and
 `docs/renders/` expanded.
 
-**Say:** “This update adds an indexed PolyMesh shape, linear ray/triangle
+**Say:** “This update adds an indexed PolyMesh shape, BVH-accelerated triangle
 intersection, interpolated vertex normals, a triangle-only OBJ reader, and a
 three-angle vase scene. The object folder contains the supplied capuchino and
 vase files plus hard and smooth pyramid fixtures.”
@@ -32,9 +32,10 @@ triangle.”
 **Screen:** `Triangle::hit`, then `impl Shape for PolyMesh`.
 
 **Say:** “Each triangle uses Moller-Trumbore intersection. Beta and gamma give
-the barycentric weights. Those weights interpolate the three vertex normals.
-The whole-mesh hit function linearly calls each triangle, shortens the maximum
-distance, and returns the closest hit.”
+the barycentric weights used to interpolate the three vertex normals. The BVH
+groups triangles into nested bounding boxes with at most eight triangles per
+leaf, so each ray skips almost all of the mesh and still returns the closest
+hit.”
 
 **Screen:** `pyramid_hard.png`, then `pyramid_smooth.png`.
 
@@ -52,8 +53,9 @@ area-weighted smooth normals.”
 
 **Screen:** `capuchino_obj.png`.
 
-**Say:** “This is the supplied 33,120-vertex, 50,000-triangle OBJ. It is shown
-at preview resolution because this assignment intentionally uses linear search.”
+**Say:** “This is the supplied 33,120-vertex, 50,000-triangle OBJ. The BVH
+keeps the full model practical by testing only the bounding-box branches each
+ray enters.”
 
 ## 2:05–2:40 — Scene construction
 

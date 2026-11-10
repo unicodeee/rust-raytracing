@@ -51,10 +51,12 @@ three position indices and three independent normal indices, so one position
 can use a different normal on each adjoining face. This is required for hard
 edges and matches OBJ's `v//vn` face-corner representation.
 
-The mesh hit test linearly calls `Triangle::hit` for every triangle and keeps
-the closest result. A triangle uses Moller-Trumbore intersection. Its
-barycentric coordinates weight the three vertex normals before the resulting
-normal is normalized and sent to the lighting code.
+`PolyMesh` builds a bounding volume hierarchy by recursively splitting triangle
+centroids along their widest axis. Rays visit the nearer child box first and
+only test the triangles in intersected leaves, with at most eight triangles per
+leaf. A triangle uses Moller-Trumbore intersection, and its barycentric
+coordinates weight the three vertex normals before the resulting normal is
+normalized and sent to the lighting code.
 
 Hard normals (one normal shared by all three corners of each face):
 
@@ -78,8 +80,7 @@ It intentionally rejects quads and n-gons, and it ignores texture coordinates,
 materials, groups, and smoothing-group records.
 
 The supplied `objects/capuchino.obj` loads as 33,120 vertices and 50,000
-triangles. Because this assignment requires linear triangle search, its preview
-is rendered at 192 x 192. The full model is still loaded and intersected:
+triangles. Its compact preview still loads and intersects the full model:
 
 ![Supplied capuchino OBJ](docs/renders/capuchino_obj.png)
 
